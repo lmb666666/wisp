@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  default: standard
+  settings:
+    errcheck:
+      # 清理路径上的 Close 按设计为 best-effort（数据已落库/落盘）
+      exclude-functions:
+        - (io.Closer).Close
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

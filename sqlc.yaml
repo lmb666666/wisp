@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    # 直接以 goose 迁移文件作为 schema 来源（迁移文件不含 Down 段，回滚走快照恢复）
+    schema: "migrations"
+    queries: "internal/db/queries"
+    gen:
+      go:
+        package: "repo"
+        out: "internal/repo"
+        emit_interface: true

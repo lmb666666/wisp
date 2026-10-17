@@ -1,0 +1,4 @@
+jar*.txt
+
+test-results/
+playwright-report/

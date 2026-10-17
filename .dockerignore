@@ -1,0 +1,12 @@
+.git
+docs
+data
+data.*
+backups
+web/node_modules
+web/dev-dist
+web/dist
+*.md
+!README.md
+wisp
+wisp-*

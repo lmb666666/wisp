@@ -1,0 +1,23 @@
+services:
+  wisp:
+    # 发布后可直接拉取镜像；从源码运行时用 `docker compose up -d --build`
+    image: ${WISP_IMAGE:-ghcr.io/lmb666666/wisp:latest}
+    build: .
+    container_name: wisp
+    # 镜像默认以非 root（uid 65532）运行；绑定挂载时以宿主用户身份运行，
+    # 使容器可写宿主机目录。NAS/服务器用户请按实际 uid 调整：
+    #   WISP_UID=1000 WISP_GID=1000 docker compose up -d
+    # 或者把数据目录交给镜像默认用户：sudo chown -R 65532:65532 ./data
+    user: "${WISP_UID:-1000}:${WISP_GID:-1000}"
+    ports:
+      - "${WISP_PORT:-8080}:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      - WISP_PUBLIC_URL=${WISP_PUBLIC_URL:-http://localhost:8080}
+      - WISP_LOG_LEVEL=${WISP_LOG_LEVEL:-info}
+      - WISP_ENABLE_SWAGGER=${WISP_ENABLE_SWAGGER:-false}
+      # 可选：音乐卡 / 位置搜索
+      # - WISP_METING_API=https://music.example.com/api?server=:server&type=:type&id=:id&r=:r
+      # - WISP_GEOCODE_URL=https://nominatim.example.com
+    restart: unless-stopped

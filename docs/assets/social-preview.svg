@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-label="Wisp — self-hosted microblog">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d97b42"/>
+      <stop offset="1" stop-color="#a9431d"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff9ee"/>
+      <stop offset="1" stop-color="#ffe7c7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#f8f0e5"/>
+  <circle cx="1120" cy="90" r="300" fill="#e9cdb7" opacity="0.35"/>
+  <circle cx="130" cy="650" r="250" fill="#e9cdb7" opacity="0.24"/>
+
+  <g transform="translate(92 82) scale(0.64)">
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+    <g transform="translate(-20 0)">
+      <path d="M112 196c14 108 38 164 74 164 36 0 55-54 70-108 15 54 34 108 70 108 36 0 62-58 76-158 3-20 8-34 18-44" fill="none" stroke="url(#ink)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M424 86c4.5 20 12 27.5 32 32-20 4.5-27.5 12-32 32-4.5-20-12-27.5-32-32 20-4.5 27.5-12 32-32z" fill="#ffe0ad"/>
+    </g>
+  </g>
+
+  <text x="470" y="228" font-family="C059, 'Bitstream Vera Serif', serif" font-size="174" letter-spacing="-7" fill="#2b1d16">wisp</text>
+  <text x="478" y="306" font-family="'Noto Sans CJK SC', 'Noto Sans CJK HK', sans-serif" font-size="46" fill="#6f5a4b">轻轻说出，牢牢拥有。</text>
+  <text x="480" y="356" font-family="Cantarell, 'DejaVu Sans', sans-serif" font-size="23" letter-spacing="1" fill="#8a6a55">自托管的轻量「说说」· 一个二进制 · 一个数据目录</text>
+
+  <g font-family="'Noto Sans CJK SC', sans-serif" font-size="22" fill="#7a4a2e">
+    <rect x="478" y="414" width="142" height="54" rx="27" fill="#f0dccb"/>
+    <text x="549" y="449" text-anchor="middle">3 秒发布</text>
+    <rect x="636" y="414" width="168" height="54" rx="27" fill="#f0dccb"/>
+    <text x="720" y="449" text-anchor="middle">PWA / 离线</text>
+    <rect x="820" y="414" width="196" height="54" rx="27" fill="#f0dccb"/>
+    <text x="918" y="449" text-anchor="middle">数据完全自持</text>
+  </g>
+  <text x="480" y="540" font-family="Cantarell, 'DejaVu Sans', sans-serif" font-size="18" letter-spacing="3.4" fill="#a06a4c">MIT  ·  GO + REACT  ·  SQLITE</text>
+</svg>
