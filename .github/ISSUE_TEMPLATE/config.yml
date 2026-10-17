@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 部署与使用文档
+    url: https://github.com/lmb666666/wisp/tree/main/docs
+    about: 先看 DEPLOY / MIGRATION / CAPSULE
+  - name: 安全漏洞
+    url: https://github.com/lmb666666/wisp/security/advisories/new
+    about: 请私下报告，不要开公开 Issue

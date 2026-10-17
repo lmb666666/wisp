@@ -1,0 +1,407 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+
+  /* 暖纸色系（参考 Ech0 的 canvas/surface 分层） */
+  --background: oklch(0.965 0.006 82);
+  --foreground: oklch(0.285 0.02 55);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.285 0.02 55);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.285 0.02 55);
+  --primary: oklch(0.52 0.16 45);
+  --primary-foreground: oklch(0.99 0.01 90);
+  --secondary: oklch(0.95 0.01 80);
+  --secondary-foreground: oklch(0.33 0.02 55);
+  --muted: oklch(0.955 0.008 78);
+  --muted-foreground: oklch(0.55 0.015 60);
+  --accent: oklch(0.93 0.032 72);
+  --accent-foreground: oklch(0.3 0.025 55);
+  --destructive: oklch(0.58 0.2 27);
+  --border: oklch(0.9 0.008 70);
+  --input: oklch(0.895 0.01 70);
+  --ring: oklch(0.75 0.06 60);
+
+  --shadow-card: 0 1px 2px oklch(0.28 0.02 55 / 5%), 0 5px 16px -8px oklch(0.28 0.02 55 / 12%);
+  --shadow-lift: 0 2px 4px oklch(0.28 0.02 55 / 6%), 0 12px 28px -12px oklch(0.28 0.02 55 / 18%);
+
+  --code-keyword: oklch(0.5 0.16 45);
+  --code-string: oklch(0.48 0.11 150);
+  --code-function: oklch(0.48 0.09 245);
+  --code-number: oklch(0.55 0.12 70);
+}
+
+.dark {
+  --background: oklch(0.165 0.008 55);
+  --foreground: oklch(0.96 0.01 80);
+  --card: oklch(0.213 0.009 55);
+  --card-foreground: oklch(0.96 0.01 80);
+  --popover: oklch(0.23 0.01 55);
+  --popover-foreground: oklch(0.96 0.01 80);
+  --primary: oklch(0.74 0.125 58);
+  --primary-foreground: oklch(0.22 0.02 50);
+  --secondary: oklch(0.26 0.009 55);
+  --secondary-foreground: oklch(0.94 0.01 80);
+  --muted: oklch(0.245 0.008 55);
+  --muted-foreground: oklch(0.7 0.012 70);
+  --accent: oklch(0.275 0.022 58);
+  --accent-foreground: oklch(0.95 0.01 80);
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.075 55);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 35%), 0 8px 22px -12px oklch(0 0 0 / 55%);
+  --shadow-lift: 0 2px 4px oklch(0 0 0 / 35%), 0 14px 30px -14px oklch(0 0 0 / 60%);
+
+  --code-keyword: oklch(0.76 0.12 60);
+  --code-string: oklch(0.78 0.1 150);
+  --code-function: oklch(0.78 0.08 235);
+  --code-number: oklch(0.8 0.11 80);
+}
+
+@theme inline {
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", ui-serif, Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: oklch(0.52 0.16 45 / 22%);
+  }
+}
+
+@layer components {
+  .wisp-card {
+    @apply bg-card border-border rounded-2xl border;
+    box-shadow: var(--shadow-card);
+  }
+  .wisp-card-interactive {
+    @apply transition-[transform,box-shadow] duration-200;
+  }
+  .wisp-card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lift);
+  }
+  .wisp-chip {
+    @apply border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors;
+  }
+  .wisp-chip-accent {
+    @apply border-transparent bg-accent/70 text-accent-foreground hover:bg-accent;
+  }
+  .wisp-section-title {
+    @apply text-[15px] font-semibold tracking-tight;
+  }
+  .wisp-hint {
+    @apply text-muted-foreground text-xs leading-relaxed;
+  }
+  .wisp-auth-bg {
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 0%, oklch(0.93 0.04 72 / 70%), transparent 70%),
+      radial-gradient(ellipse 40% 40% at 85% 15%, oklch(0.95 0.03 50 / 45%), transparent 70%);
+  }
+  .dark .wisp-auth-bg {
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 0%, oklch(0.32 0.05 55 / 45%), transparent 70%),
+      radial-gradient(ellipse 40% 40% at 85% 15%, oklch(0.28 0.04 45 / 35%), transparent 70%);
+  }
+
+  /* 编辑器占位 */
+  .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply text-muted-foreground pointer-events-none float-left h-0;
+  }
+
+  /* 服务端渲染的帖子正文 */
+  .post-content {
+    @apply text-[15px] leading-[1.75];
+  }
+  .post-content p {
+    @apply my-1.5 first:mt-0 last:mb-0;
+  }
+  .post-content h1,
+  .post-content h2,
+  .post-content h3 {
+    @apply font-display my-3 font-semibold first:mt-0;
+  }
+  .post-content h1 { @apply text-xl; }
+  .post-content h2 { @apply text-lg; }
+  .post-content h3 { @apply text-base; }
+  .post-content a {
+    @apply text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary;
+  }
+  .post-content code {
+    @apply bg-muted text-foreground rounded-md px-1.5 py-0.5 text-[13px];
+  }
+  .post-content pre,
+  .post-content pre.chroma {
+    @apply bg-muted my-2 overflow-x-auto rounded-xl p-3 text-[13px] leading-relaxed;
+  }
+  .post-content pre code {
+    @apply bg-transparent p-0;
+  }
+
+  /* 代码高亮（chroma class 输出，跟随主题） */
+  .post-content .chroma {
+    color: var(--foreground);
+  }
+  .post-content .chroma .c,
+  .post-content .chroma .c1,
+  .post-content .chroma .cm,
+  .post-content .chroma .cs {
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  .post-content .chroma .k,
+  .post-content .chroma .kc,
+  .post-content .chroma .kd,
+  .post-content .chroma .kn,
+  .post-content .chroma .kr,
+  .post-content .chroma .kt {
+    color: var(--code-keyword);
+    font-weight: 600;
+  }
+  .post-content .chroma .s,
+  .post-content .chroma .sa,
+  .post-content .chroma .sb,
+  .post-content .chroma .sc,
+  .post-content .chroma .s1,
+  .post-content .chroma .s2,
+  .post-content .chroma .se,
+  .post-content .chroma .sh,
+  .post-content .chroma .si,
+  .post-content .chroma .sx {
+    color: var(--code-string);
+  }
+  .post-content .chroma .nf,
+  .post-content .chroma .fm,
+  .post-content .chroma .nc,
+  .post-content .chroma .nn {
+    color: var(--code-function);
+  }
+  .post-content .chroma .mi,
+  .post-content .chroma .mf,
+  .post-content .chroma .mh,
+  .post-content .chroma .mo,
+  .post-content .chroma .il {
+    color: var(--code-number);
+  }
+  .post-content .chroma .o,
+  .post-content .chroma .p {
+    color: var(--foreground);
+  }
+  .post-content blockquote {
+    @apply border-primary/25 text-muted-foreground my-2 border-l-2 pl-3;
+  }
+  .post-content ul { @apply my-1.5 list-disc pl-5; }
+  .post-content ol { @apply my-1.5 list-decimal pl-5; }
+  .post-content img { @apply my-2 max-w-full rounded-xl; }
+  .post-content hr { @apply border-border my-3; }
+
+  /* 链接卡片 */
+  .post-content .link-card {
+    @apply border-border bg-muted/30 hover:bg-muted/60 relative my-2 flex items-center gap-3 rounded-xl border p-3 transition-colors;
+    text-decoration: none !important;
+  }
+  .post-content .link-card-body {
+    @apply flex min-w-0 flex-1 flex-col gap-1;
+  }
+  .post-content .link-card-title {
+    @apply text-foreground line-clamp-2 text-sm font-medium;
+  }
+  .post-content .link-card-meta {
+    @apply text-muted-foreground text-xs;
+  }
+  .post-content .link-card-cover {
+    @apply size-16 shrink-0 rounded-lg object-cover;
+  }
+  .post-content .link-card-play {
+    @apply bg-background/90 text-foreground absolute top-2 right-2 grid size-6 place-items-center rounded-full text-[10px] shadow-sm;
+  }
+  .post-content .link-cards {
+    @apply mt-3 flex flex-col gap-2;
+  }
+  .post-content .link-cards .link-card {
+    @apply my-0;
+  }
+}
+
+/* 音乐卡进度条（参考 Ech0） */
+.wisp-range {
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+.wisp-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) var(--wisp-progress),
+    var(--border) var(--wisp-progress)
+  );
+}
+.wisp-range::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  appearance: none;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.2);
+}
+.wisp-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.wisp-range::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.wisp-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--primary);
+}
+.wisp-range:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* ---------- 动效 ---------- */
+:root {
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes wisp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wisp-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wisp-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wisp-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* 只做透明度：弹窗由 translate 定位，任何 transform/scale 动画都可能在移动端叠加位移。 */
+@keyframes wisp-dialog-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wisp-dialog-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes wisp-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@layer components {
+  .wisp-page {
+    animation: wisp-page-in 0.22s var(--ease-out-soft) both;
+  }
+  .wisp-stagger > * {
+    animation: wisp-rise 0.3s var(--ease-out-soft) both;
+  }
+  .wisp-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .wisp-stagger > *:nth-child(2) { animation-delay: 35ms; }
+  .wisp-stagger > *:nth-child(3) { animation-delay: 70ms; }
+  .wisp-stagger > *:nth-child(4) { animation-delay: 105ms; }
+  .wisp-stagger > *:nth-child(5) { animation-delay: 140ms; }
+  .wisp-stagger > *:nth-child(n + 6) { animation-delay: 160ms; }
+  .wisp-pop {
+    animation: wisp-pop 0.16s var(--ease-out-soft) both;
+  }
+}
+
+/* Radix 组件入场 */
+[data-slot="dialog-overlay"][data-state="open"] {
+  animation: wisp-fade 0.18s ease-out;
+}
+[data-slot="dialog-overlay"][data-state="closed"] {
+  animation: wisp-fade 0.15s ease-in reverse;
+}
+[data-slot="dialog-content"][data-state="open"] {
+  animation: wisp-dialog-in 0.2s var(--ease-out-soft);
+}
+[data-slot="dialog-content"][data-state="closed"] {
+  animation: wisp-dialog-out 0.15s ease-in;
+}
+[data-slot="select-content"][data-state="open"] {
+  animation: wisp-menu-in 0.15s var(--ease-out-soft);
+}
+[data-slot="tooltip-content"][data-state="delayed-open"],
+[data-slot="tooltip-content"][data-state="instant-open"] {
+  animation: wisp-fade 0.12s ease-out;
+}
+
+/* 主题切换使用 View Transitions（支持的浏览器） */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+}
+
+/* 尊重系统减少动效设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

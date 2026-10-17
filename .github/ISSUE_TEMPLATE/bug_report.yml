@@ -1,0 +1,66 @@
+name: Bug report
+description: 报告可复现的缺陷
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先搜索已有 Issue。安全漏洞不要在这里发，走 [SECURITY.md](https://github.com/lmb666666/wisp/blob/main/SECURITY.md)。
+  - type: input
+    id: version
+    attributes:
+      label: Wisp 版本
+      description: 站点概览里显示，或 release 文件名 / commit
+      placeholder: v0.2.0 / commit abc123
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: 部署方式
+      options:
+        - Docker
+        - 二进制
+        - 源码 / make dev
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 浏览器、系统、反向代理、移动端/桌面
+      placeholder: iPhone 15 / iOS 18 Safari；Caddy；Docker
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开…
+        2. 点击…
+        3. 看到…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 请先移除令牌、密码、私有地址与个人内容
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 这是单作者/单实例工具的缺陷，而不是多用户/评论等范围外需求
+          required: true
+        - label: 日志和截图中没有敏感信息
+          required: true
