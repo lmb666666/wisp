@@ -1,3 +1,5 @@
+![Wisp](https://raw.githubusercontent.com/lmb666666/wisp/main/docs/assets/banner.png)
+
 # Wisp v0.2.0
 
 首个公开版本。Wisp 是一个单作者、自托管的轻量「说说 / 朋友圈」：一个 Go 二进制、一份 data 目录，移动端优先，数据完全自持。
@@ -28,7 +30,16 @@ cd wisp
 WISP_PUBLIC_URL=https://wisp.example.com docker compose up -d --build
 ```
 
-或从 Releases 下载对应平台的 `wisp` / `wisp-cli`。首次访问按向导创建站点所有者。
+或直接使用多架构镜像：
+
+```bash
+docker run -d --name wisp -p 8080:8080 \
+  -v "$PWD/data:/data" \
+  -e WISP_PUBLIC_URL=http://localhost:8080 \
+  ghcr.io/lmb666666/wisp:v0.2.0
+```
+
+也可以从 Releases 下载对应平台的 `wisp` / `wisp-cli`。首次访问按向导创建站点所有者。
 
 ## 已知边界
 
