@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 维护
+
+- 升级全部 Go 与前端依赖：Echo 4.16.2、minio-go 7.4.1、goose 3.29、modernc SQLite 1.61、x/crypto 0.58、React 19.3.1、TanStack Query/Router、TipTap 3.32、zod 4.6.7、lucide-react 1.61 等
+- GitHub Actions 升至当前最新大版本：checkout v7、setup-go/setup-node v7、pnpm/action-setup v6、golangci-lint-action v9、goreleaser-action v7、Docker 系列 v4/v7
+- 移除误提交的手动探针脚本 `web/mtest2.mjs`
+
 ## [0.2.0] - 2026-10-17
 
 首个公开版本。单作者、自托管、单二进制的轻量「说说 / 朋友圈」。
