@@ -314,12 +314,12 @@ func parseEch0Zip(data []byte) ([]Post, error) {
 		if !strings.Contains(dir, "echoes/") || !strings.HasSuffix(name, ".md") {
 			continue
 		}
-		rc, err := f.Open()
+		// 4MB 上限（与 wisp capsule 正文一致），防 zip bomb
+		raw, err := readZipEntry(f, 4<<20)
 		if err != nil {
 			return nil, fmt.Errorf("读取 %s: %w", f.Name, err)
 		}
-		content := readAll(rc)
-		_ = rc.Close()
+		content := string(raw)
 
 		body := content
 		ts := time.Now().Unix()

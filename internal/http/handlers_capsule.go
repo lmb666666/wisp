@@ -11,10 +11,9 @@ import (
 	"github.com/lmb666666/wisp/internal/capsule"
 )
 
-// exportCapsule GET /admin/export/capsule?include_private=1
+// exportCapsule GET /admin/export/capsule
 // 流式导出 Wisp 内容包（Markdown + frontmatter + 原图），可导入任意实例。
 func (s *Server) exportCapsule(c echo.Context) error {
-	includePrivate := c.QueryParam("include_private") == "1"
 	name := fmt.Sprintf("wisp-capsule-%s.zip", time.Now().Format("20060102-150405"))
 
 	h := c.Response().Header()
@@ -24,8 +23,7 @@ func (s *Server) exportCapsule(c echo.Context) error {
 	c.Response().WriteHeader(http.StatusOK)
 
 	stats, err := capsule.Export(c.Request().Context(), s.q, s.store, c.Response().Writer, capsule.Options{
-		IncludePrivate: includePrivate,
-		SourceURL:      s.cfg.PublicURL,
+		SourceURL: s.cfg.PublicURL,
 	})
 	if err != nil {
 		// 响应头已发出，只能记录日志并中断
@@ -33,7 +31,7 @@ func (s *Server) exportCapsule(c echo.Context) error {
 		return nil
 	}
 	slog.Info("capsule exported", "posts", stats.Posts, "attachments", stats.Attachments,
-		"media_bytes", stats.MediaBytes, "warnings", len(stats.Warnings), "include_private", includePrivate)
+		"media_bytes", stats.MediaBytes, "warnings", len(stats.Warnings))
 	for _, w := range stats.Warnings {
 		slog.Warn("capsule export warning", "detail", w)
 	}

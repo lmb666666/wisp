@@ -1,13 +1,4 @@
--- name: SearchPublicPosts :many
-SELECT p.* FROM posts p
-JOIN posts_fts f ON f.rowid = p.rowid
-WHERE f.content_md MATCH ?
-  AND p.visibility = 'public'
-  AND p.published_at < ?
-ORDER BY p.published_at DESC
-LIMIT ?;
-
--- name: SearchAuthorPosts :many
+-- name: SearchPosts :many
 SELECT p.* FROM posts p
 JOIN posts_fts f ON f.rowid = p.rowid
 WHERE f.content_md MATCH ?
@@ -15,17 +6,9 @@ WHERE f.content_md MATCH ?
 ORDER BY p.published_at DESC
 LIMIT ?;
 
--- name: SearchPublicPostsLike :many
+-- name: SearchPostsBySubstring :many
 SELECT * FROM posts
-WHERE content_md LIKE ('%' || ? || '%')
-  AND visibility = 'public'
-  AND published_at < ?
-ORDER BY published_at DESC
-LIMIT ?;
-
--- name: SearchAuthorPostsLike :many
-SELECT * FROM posts
-WHERE content_md LIKE ('%' || ? || '%')
+WHERE instr(content_md, ?) > 0
   AND published_at < ?
 ORDER BY published_at DESC
 LIMIT ?;

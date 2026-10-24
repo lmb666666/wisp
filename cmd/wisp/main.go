@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,6 +28,12 @@ import (
 )
 
 func main() {
+	// wisp 不接受命令行参数（配置全走环境变量）；未知参数直接报错，
+	// 避免 `./wisp --version` 之类误用被静默忽略后以默认配置启动
+	if len(os.Args) > 1 {
+		fmt.Fprintf(os.Stderr, "wisp 不接受命令行参数（收到 %q）；配置请使用 WISP_* 环境变量\n", os.Args[1])
+		os.Exit(2)
+	}
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
@@ -63,7 +70,7 @@ func run() error {
 	if err != nil {
 		slog.Warn("passkey disabled", "err", err)
 	}
-	postSvc := service.NewPostService(q, cfg.PublicURL, cfg.MetingAPI)
+	postSvc := service.NewPostService(database, q, cfg.PublicURL, cfg.MetingAPI)
 	if err := service.ReRenderAll(context.Background(), q); err != nil {
 		slog.Warn("re-render posts failed", "err", err)
 	}
@@ -135,17 +142,31 @@ func run() error {
 		return err
 	}
 
-	// 优雅退出
+	// 优雅退出：第一个信号触发 Shutdown（上限 15s，慢连接不强拖）；
+	// 第二个信号立即强退——不再吞掉用户的「快退」意图
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	secondSig := make(chan os.Signal, 1)
+	signal.Notify(secondSig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(secondSig)
+	go func() {
+		<-ctx.Done()
+		<-secondSig
+		slog.Warn("forced exit on second signal")
+		os.Exit(1)
+	}()
 	backupSvc.Start(ctx)
 	defer func() {
 		stop()
 		backupSvc.Wait()
+		hooks.Stop() // 排空 webhook 队列再退，避免事件丢失
+		hooks.Wait()
 	}()
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelShutdown()
 	go func() {
 		<-ctx.Done()
 		slog.Info("shutting down")
-		_ = e.Shutdown(context.Background())
+		_ = e.Shutdown(shutdownCtx)
 	}()
 
 	srv := &http.Server{
@@ -157,8 +178,13 @@ func run() error {
 	}
 
 	addr := srv.Addr
+	// 先绑定再打日志：端口被占时不会先出现误导性的 "listening"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("http server: %w", err)
+	}
 	slog.Info("wisp listening", "addr", addr, "data_dir", cfg.DataDir, "public_url", cfg.PublicURL)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("http server: %w", err)
 	}
 	return nil

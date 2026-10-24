@@ -18,10 +18,7 @@
 | 来源值 | Wisp |
 |---|---|
 | Memos `PUBLIC` | public |
-| Memos `PROTECTED` / `PRIVATE` | private |
-| Moments `showType=1` | public |
-| Moments `showType≠1` | private |
-| Ech0 / Wisp capsule 的 `unlisted` | private（仅链接已移除） |
+| 所有来源（Memos/Moments/Ech0/Wisp） | public（私密发布已移除，历史内容一律公开） |
 
 ## 去重与附件
 
@@ -42,19 +39,19 @@
 
 ### 导出
 
-界面：**设置 → 数据 → 导出内容包**（可选是否包含私密内容）。
+界面：**设置 → 数据 → 导出内容包**。
 
 ```bash
 curl -b "wisp_session=<会话 Cookie>" \
   -o wisp-capsule.zip \
-  "https://wisp.example.com/api/v1/admin/export/capsule?include_private=1"
+  "https://wisp.example.com/api/v1/admin/export/capsule"
 ```
 
 - 流式生成 zip，不占用大量内存；文件名 `wisp-capsule-YYYYMMDD-HHMMSS.zip`。
 - 外置存储（S3 / Lsky）优先从配置存储读取，失败再试 `remote_url`；仍失败的附件以 `remote_url` 形式保留在清单里，warning 写入日志与 `wisp.yaml.warnings`。
 - 单附件导出上限 32MB，超限记录 warning 并保留 `remote_url`，不静默截断。
 - 视频封面固定存本地，一并打包；缩略图不导出（导入时重新生成）。
-- 导出仅限已登录会话；是否含私密内容由导出者选择。
+- 导出仅限已登录会话；内容包包含全部帖子（可见性概念已移除）。
 
 ### 格式（version 1）
 
@@ -71,7 +68,6 @@ wisp-capsule/
 version: 1
 exported_at: 1792229851
 source_url: https://wisp.example.com
-include_private: true
 stats: {posts: 128, attachments: 45, media_bytes: 12345678}
 warnings: []
 ```

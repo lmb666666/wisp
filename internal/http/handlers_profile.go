@@ -17,7 +17,7 @@ func (s *Server) getProfile(c echo.Context) error {
 	}
 	prof, err := s.auth.Profile(c.Request().Context(), p.userID)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, prof)
 }
@@ -41,7 +41,7 @@ func (s *Server) updateProfile(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if req.NewPassword != "" {
-		if err := s.auth.ChangePassword(ctx, p.userID, req.CurrentPassword, req.NewPassword); err != nil {
+		if err := s.auth.ChangePassword(ctx, p.userID, req.CurrentPassword, req.NewPassword, p.sessionRaw); err != nil {
 			if errors.Is(err, auth.ErrCurrentPassword) {
 				return apiError(c, http.StatusBadRequest, "bad_password", err.Error())
 			}
@@ -50,12 +50,16 @@ func (s *Server) updateProfile(c echo.Context) error {
 	}
 	if req.DisplayName != nil {
 		if _, err := s.auth.UpdateDisplayName(ctx, p.userID, *req.DisplayName); err != nil {
+			if req.NewPassword != "" {
+				// 密码已生效，昵称失败不能让客户端误以为整体未成功
+				return apiError(c, http.StatusBadRequest, "partial", "密码已修改，但昵称保存失败: "+err.Error())
+			}
 			return apiError(c, http.StatusBadRequest, "bad_request", err.Error())
 		}
 	}
 	prof, err := s.auth.Profile(ctx, p.userID)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, prof)
 }

@@ -43,8 +43,9 @@ func (s *Service) UpdateDisplayName(ctx context.Context, userID int64, name stri
 	return s.Profile(ctx, userID)
 }
 
-// ChangePassword 校验当前密码后更新。
-func (s *Service) ChangePassword(ctx context.Context, userID int64, current, next string) error {
+// ChangePassword 校验当前密码后更新，并吊销该用户除 keepSession 外的全部会话
+// （被盗 Cookie 在改密后立即失效，当前设备保持登录）。
+func (s *Service) ChangePassword(ctx context.Context, userID int64, current, next, keepSession string) error {
 	if len(next) < 8 {
 		return errors.New("新密码至少 8 位")
 	}
@@ -60,7 +61,15 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, current, nex
 	if err != nil {
 		return err
 	}
-	return s.q.UpdateUserPasswordHash(ctx, repo.UpdateUserPasswordHashParams{
+	if err := s.q.UpdateUserPasswordHash(ctx, repo.UpdateUserPasswordHashParams{
 		PasswordHash: hash, UpdatedAt: time.Now().Unix(), ID: userID,
-	})
+	}); err != nil {
+		return err
+	}
+	if keepSession != "" {
+		return s.q.DeleteSessionsByUserKeep(ctx, repo.DeleteSessionsByUserKeepParams{
+			UserID: userID, KeepID: hashToken(keepSession),
+		})
+	}
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/lmb666666/wisp/internal/repo"
@@ -21,12 +22,16 @@ const (
 	queueSize     = 64
 	workerCount   = 2
 	maxPayloadLog = 200
+	retryDelays   = 3 // 失败重试次数（间隔 2s/8s/30s）
 )
 
-// Dispatcher 事件分发器：Emit 非阻塞，worker 异步投递。
+var retryBackoff = []time.Duration{2 * time.Second, 8 * time.Second, 30 * time.Second}
+
+// Dispatcher 事件分发器：Emit 非阻塞，worker 异步投递（失败带退避重试）。
 type Dispatcher struct {
 	q  repo.Querier
 	ch chan job
+	wg sync.WaitGroup
 }
 
 type job struct {
@@ -39,12 +44,18 @@ func NewDispatcher(q repo.Querier) *Dispatcher {
 	return &Dispatcher{q: q, ch: make(chan job, queueSize)}
 }
 
-// Start 启动 worker（调用方保证进程生命周期）。
+// Start 启动 worker；进程退出前调用 Stop + Wait 避免队列内事件丢失。
 func (d *Dispatcher) Start() {
+	d.wg.Add(workerCount)
 	for i := 0; i < workerCount; i++ {
 		go d.worker()
 	}
 }
+
+// Stop 关闭队列（不再接收新事件）；Wait 等待 worker 排空退出。只允许调用一次。
+func (d *Dispatcher) Stop() { close(d.ch) }
+
+func (d *Dispatcher) Wait() { d.wg.Wait() }
 
 // Emit 投递事件：队列满则丢弃并记录（宁可丢通知，不可阻塞发帖）。
 func (d *Dispatcher) Emit(event string, payload any) {
@@ -63,9 +74,10 @@ func (d *Dispatcher) Emit(event string, payload any) {
 }
 
 func (d *Dispatcher) worker() {
+	defer d.wg.Done()
 	hc := &http.Client{Timeout: httpTimeout}
 	for job := range d.ch {
-		d.deliver(hc, job)
+		d.deliverWithRetry(hc, job)
 	}
 }
 
@@ -75,31 +87,47 @@ type envelope struct {
 	Data      any    `json:"data"`
 }
 
-func (d *Dispatcher) deliver(hc *http.Client, job job) {
-	body, err := json.Marshal(envelope{Event: job.event, Timestamp: time.Now().Unix(), Data: job.payload})
+// deliverWithRetry 投递失败按退避重试；总耗时上限约 45s（2s/8s/30s）。
+func (d *Dispatcher) deliverWithRetry(hc *http.Client, jb job) {
+	for attempt := 0; ; attempt++ {
+		if d.deliver(hc, jb) {
+			return
+		}
+		if attempt >= len(retryBackoff) {
+			return
+		}
+		time.Sleep(retryBackoff[attempt])
+	}
+}
+
+// deliver 单次投递；返回是否成功（2xx）。
+func (d *Dispatcher) deliver(hc *http.Client, jb job) bool {
+	body, err := json.Marshal(envelope{Event: jb.event, Timestamp: time.Now().Unix(), Data: jb.payload})
 	if err != nil {
 		slog.Warn("webhook marshal", "err", err)
-		return
+		return false
 	}
-	sign := hmacSign(job.hook.Secret, body)
-	req, err := http.NewRequest(http.MethodPost, job.hook.Url, bytes.NewReader(body))
+	sign := hmacSign(jb.hook.Secret, body)
+	req, err := http.NewRequest(http.MethodPost, jb.hook.Url, bytes.NewReader(body))
 	if err != nil {
-		return
+		return false
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Wisp-Event", job.event)
+	req.Header.Set("X-Wisp-Event", jb.event)
 	req.Header.Set("X-Wisp-Signature", "sha256="+sign)
 	req.Header.Set("X-Wisp-Delivery", util.NewULID())
 
 	resp, err := hc.Do(req)
 	if err != nil {
-		slog.Warn("webhook delivery failed", "url", maskURL(job.hook.Url), "err", err)
-		return
+		slog.Warn("webhook delivery failed", "url", maskURL(jb.hook.Url), "err", err)
+		return false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		slog.Warn("webhook non-2xx", "url", maskURL(job.hook.Url), "status", resp.StatusCode)
+		slog.Warn("webhook non-2xx", "url", maskURL(jb.hook.Url), "status", resp.StatusCode)
+		return false
 	}
+	return true
 }
 
 // Sign 暴露给测试：计算 HMAC-SHA256（hex）。

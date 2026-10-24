@@ -157,7 +157,7 @@ test("设置页切换子页面不重挂载左侧导航", async ({ page }) => {
 
 test("内容包导出接口可用", async ({ page }) => {
   await ensureLogin(page)
-  const res = await page.request.get("/api/v1/admin/export/capsule?include_private=1")
+  const res = await page.request.get("/api/v1/admin/export/capsule")
   expect(res.status()).toBe(200)
   expect(res.headers()["content-type"]).toContain("application/zip")
   const body = await res.body()
@@ -237,16 +237,16 @@ test("标签管理：重命名与合并", async ({ page }) => {
   await expect(page.getByText(`#${tagB}`)).toHaveCount(0)
 })
 
-test("筛选：标签/可见性、URL 持久化与清除", async ({ page }) => {
+test("筛选：标签、URL 持久化与清除", async ({ page }) => {
   await ensureLogin(page)
   const stamp = Date.now()
   const tagA = `筛选甲${stamp}`
   const tagB = `筛选乙${stamp}`
-  const publicText = `B1 公开 ${stamp}`
-  const privateText = `B1 私密 ${stamp}`
+  const textA = `B1 甲 ${stamp}`
+  const textB = `B1 乙 ${stamp}`
   for (const input of [
-    { content_md: `${publicText} #${tagA}`, visibility: "public" },
-    { content_md: `${privateText} #${tagB}`, visibility: "private" },
+    { content_md: `${textA} #${tagA}` },
+    { content_md: `${textB} #${tagB}` },
   ]) {
     const res = await page.request.post("/api/v1/posts", { data: input })
     expect(res.status()).toBe(201)
@@ -261,13 +261,13 @@ test("筛选：标签/可见性、URL 持久化与清除", async ({ page }) => {
   await dialog.getByRole("button", { name: "应用" }).click()
 
   await expect(page.getByRole("button", { name: `移除筛选：#${tagA}` })).toBeVisible()
-  await expect(page.getByText(publicText).first()).toBeVisible()
-  await expect(page.getByText(privateText)).toHaveCount(0)
+  await expect(page.getByText(textA).first()).toBeVisible()
+  await expect(page.getByText(textB)).toHaveCount(0)
 
   // 刷新后条件保留
   await page.reload()
   await expect(page.getByRole("button", { name: `移除筛选：#${tagA}` })).toBeVisible()
-  await expect(page.getByText(publicText).first()).toBeVisible()
+  await expect(page.getByText(textA).first()).toBeVisible()
 
   // 快捷键打开筛选
   await page.keyboard.press("Control+k")
@@ -276,22 +276,13 @@ test("筛选：标签/可见性、URL 持久化与清除", async ({ page }) => {
   await page.keyboard.press("Escape")
   await expect(dialog).toHaveCount(0)
 
-  // 清除后恢复全部（owner 能看到自己的私密帖）
+  // 清除后恢复全部
   await page.getByRole("button", { name: "清除全部" }).click()
   await expect(page.getByRole("button", { name: `移除筛选：#${tagA}` })).toHaveCount(0)
-  await expect(page.getByText(privateText).first()).toBeVisible()
-
-  // 可见性筛选：只看私密
-  await page.getByRole("button", { name: "筛选", exact: true }).click()
-  dialog = page.getByRole("dialog")
-  await dialog.getByRole("button", { name: "私密", exact: true }).click()
-  await dialog.getByRole("button", { name: "应用" }).click()
-  await expect(page.getByText(privateText).first()).toBeVisible()
-  await expect(page.getByText(publicText)).toHaveCount(0)
-  await page.getByRole("button", { name: "清除全部" }).click()
+  await expect(page.getByText(textB).first()).toBeVisible()
 })
 
-test("分享链接与表情弹层：外部/ Esc 关闭并归还焦点", async ({ page, context }) => {
+test("分享链接：复制到剪贴板", async ({ page, context }) => {
   await ensureLogin(page)
   const text = `分享测试 ${Date.now()}`
   const res = await page.request.post("/api/v1/posts", { data: { content_md: text } })
@@ -309,18 +300,6 @@ test("分享链接与表情弹层：外部/ Esc 关闭并归还焦点", async ({
   await expect(page.getByText("链接已复制")).toBeVisible()
   const clip = await page.evaluate(() => navigator.clipboard.readText())
   expect(clip).toContain("/p/")
-
-  const trigger = article.getByRole("button", { name: "添加表情" })
-  await trigger.click()
-  await expect(article.getByRole("menuitem", { name: "👍" })).toBeVisible()
-  await page.keyboard.press("Escape")
-  await expect(article.getByRole("menuitem", { name: "👍" })).toHaveCount(0)
-  await expect(trigger).toBeFocused()
-
-  await trigger.click()
-  await expect(article.getByRole("menuitem", { name: "👍" })).toBeVisible()
-  await page.locator("h2").first().click()
-  await expect(article.getByRole("menuitem", { name: "👍" })).toHaveCount(0)
 })
 
 test("自动备份：立即备份与保存设置", async ({ page }) => {

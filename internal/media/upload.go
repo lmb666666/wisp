@@ -161,8 +161,27 @@ func (u *Uploader) uploadReader(ctx context.Context, filename string, size int64
 	return &row, nil
 }
 
+// maxImagePixels 图片解码上限：64MP（如 8000×8000）。超出直接拒绝，
+// 防 decompression bomb（头部声明超大尺寸 → image.Decode 数 GB 内存分配）。
+const maxImagePixels = 64 << 20
+
 // deriveFrom 从上传流解码图片：原始尺寸 + blurhash + 640px JPEG 缩略图。
-func deriveFrom(r io.Reader) (derivedImage, error) {
+func deriveFrom(r io.ReadSeeker) (derivedImage, error) {
+	// 先读头部尺寸，超限拒码（不进入全量解码）；DecodeConfig 会消耗字节，需回卷
+	start, err := r.Seek(0, io.SeekStart)
+	if err != nil {
+		return derivedImage{}, fmt.Errorf("seek upload: %w", err)
+	}
+	cfg, _, err := image.DecodeConfig(r)
+	if err != nil {
+		return derivedImage{}, fmt.Errorf("decode config: %w", err)
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > maxImagePixels {
+		return derivedImage{}, fmt.Errorf("图片尺寸超限（%dx%d，上限 64MP）", cfg.Width, cfg.Height)
+	}
+	if _, err := r.Seek(start, io.SeekStart); err != nil {
+		return derivedImage{}, fmt.Errorf("rewind upload: %w", err)
+	}
 	img, _, err := image.Decode(r)
 	if err != nil {
 		return derivedImage{}, fmt.Errorf("decode image: %w", err)

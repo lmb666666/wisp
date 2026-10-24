@@ -7,10 +7,9 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 )
 
-const searchAuthorPosts = `-- name: SearchAuthorPosts :many
+const searchPosts = `-- name: SearchPosts :many
 SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, p.published_at, p.edited_at, p.source, p.client, p.created_at, p.blocks FROM posts p
 JOIN posts_fts f ON f.rowid = p.rowid
 WHERE f.content_md MATCH ?
@@ -19,14 +18,14 @@ ORDER BY p.published_at DESC
 LIMIT ?
 `
 
-type SearchAuthorPostsParams struct {
+type SearchPostsParams struct {
 	ContentMd   string
 	PublishedAt int64
 	Limit       int64
 }
 
-func (q *Queries) SearchAuthorPosts(ctx context.Context, arg SearchAuthorPostsParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, searchAuthorPosts, arg.ContentMd, arg.PublishedAt, arg.Limit)
+func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, searchPosts, arg.ContentMd, arg.PublishedAt, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -61,125 +60,22 @@ func (q *Queries) SearchAuthorPosts(ctx context.Context, arg SearchAuthorPostsPa
 	return items, nil
 }
 
-const searchAuthorPostsLike = `-- name: SearchAuthorPostsLike :many
+const searchPostsBySubstring = `-- name: SearchPostsBySubstring :many
 SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
-WHERE content_md LIKE ('%' || ? || '%')
+WHERE instr(content_md, ?) > 0
   AND published_at < ?
 ORDER BY published_at DESC
 LIMIT ?
 `
 
-type SearchAuthorPostsLikeParams struct {
-	Column1     sql.NullString
+type SearchPostsBySubstringParams struct {
+	INSTR       string
 	PublishedAt int64
 	Limit       int64
 }
 
-func (q *Queries) SearchAuthorPostsLike(ctx context.Context, arg SearchAuthorPostsLikeParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, searchAuthorPostsLike, arg.Column1, arg.PublishedAt, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ContentMd,
-			&i.ContentHtml,
-			&i.Visibility,
-			&i.Location,
-			&i.PublishedAt,
-			&i.EditedAt,
-			&i.Source,
-			&i.Client,
-			&i.CreatedAt,
-			&i.Blocks,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const searchPublicPosts = `-- name: SearchPublicPosts :many
-SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, p.published_at, p.edited_at, p.source, p.client, p.created_at, p.blocks FROM posts p
-JOIN posts_fts f ON f.rowid = p.rowid
-WHERE f.content_md MATCH ?
-  AND p.visibility = 'public'
-  AND p.published_at < ?
-ORDER BY p.published_at DESC
-LIMIT ?
-`
-
-type SearchPublicPostsParams struct {
-	ContentMd   string
-	PublishedAt int64
-	Limit       int64
-}
-
-func (q *Queries) SearchPublicPosts(ctx context.Context, arg SearchPublicPostsParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, searchPublicPosts, arg.ContentMd, arg.PublishedAt, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ContentMd,
-			&i.ContentHtml,
-			&i.Visibility,
-			&i.Location,
-			&i.PublishedAt,
-			&i.EditedAt,
-			&i.Source,
-			&i.Client,
-			&i.CreatedAt,
-			&i.Blocks,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const searchPublicPostsLike = `-- name: SearchPublicPostsLike :many
-SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
-WHERE content_md LIKE ('%' || ? || '%')
-  AND visibility = 'public'
-  AND published_at < ?
-ORDER BY published_at DESC
-LIMIT ?
-`
-
-type SearchPublicPostsLikeParams struct {
-	Column1     sql.NullString
-	PublishedAt int64
-	Limit       int64
-}
-
-func (q *Queries) SearchPublicPostsLike(ctx context.Context, arg SearchPublicPostsLikeParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, searchPublicPostsLike, arg.Column1, arg.PublishedAt, arg.Limit)
+func (q *Queries) SearchPostsBySubstring(ctx context.Context, arg SearchPostsBySubstringParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, searchPostsBySubstring, arg.INSTR, arg.PublishedAt, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

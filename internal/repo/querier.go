@@ -10,7 +10,6 @@ import (
 )
 
 type Querier interface {
-	AddReaction(ctx context.Context, arg AddReactionParams) error
 	AttachToPost(ctx context.Context, arg AttachToPostParams) error
 	ClearPostTags(ctx context.Context, postID string) error
 	CountMedia(ctx context.Context, arg CountMediaParams) (int64, error)
@@ -27,14 +26,14 @@ type Querier interface {
 	CreateToken(ctx context.Context, arg CreateTokenParams) (ApiToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
-	DailyCountsAuthor(ctx context.Context, arg DailyCountsAuthorParams) ([]DailyCountsAuthorRow, error)
-	DailyCountsPublic(ctx context.Context, arg DailyCountsPublicParams) ([]DailyCountsPublicRow, error)
+	DailyCounts(ctx context.Context, arg DailyCountsParams) ([]DailyCountsRow, error)
 	DeleteAttachment(ctx context.Context, id string) error
 	DeleteExpiredSessions(ctx context.Context, expiresAt int64) error
 	DeleteOldIdempotencyKeys(ctx context.Context, createdAt int64) error
 	DeletePasskey(ctx context.Context, id string) error
 	DeletePost(ctx context.Context, id string) error
 	DeleteSession(ctx context.Context, id string) error
+	DeleteSessionsByUserKeep(ctx context.Context, arg DeleteSessionsByUserKeepParams) error
 	DeleteTag(ctx context.Context, id int64) error
 	DeleteTagLinks(ctx context.Context, tagID int64) error
 	DeleteToken(ctx context.Context, id string) error
@@ -57,8 +56,6 @@ type Querier interface {
 	InsertIdempotencyKey(ctx context.Context, arg InsertIdempotencyKeyParams) error
 	LinkPostTag(ctx context.Context, arg LinkPostTagParams) error
 	ListAttachmentOnlyFingerprints(ctx context.Context) ([]ListAttachmentOnlyFingerprintsRow, error)
-	ListAuthorPosts(ctx context.Context, arg ListAuthorPostsParams) ([]Post, error)
-	ListAuthorPostsByTag(ctx context.Context, arg ListAuthorPostsByTagParams) ([]Post, error)
 	ListFilteredPosts(ctx context.Context, arg ListFilteredPostsParams) ([]Post, error)
 	ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMediaRow, error)
 	ListPasskeys(ctx context.Context) ([]Passkey, error)
@@ -67,11 +64,9 @@ type Querier interface {
 	ListPostContentForRerender(ctx context.Context) ([]ListPostContentForRerenderRow, error)
 	ListPostContentMDs(ctx context.Context) ([]string, error)
 	ListPostFingerprints(ctx context.Context) ([]ListPostFingerprintsRow, error)
-	ListPostReactions(ctx context.Context, arg ListPostReactionsParams) ([]ListPostReactionsRow, error)
 	ListPostTags(ctx context.Context, postID string) ([]Tag, error)
-	ListPostsForExport(ctx context.Context, includePrivate interface{}) ([]Post, error)
-	ListPublicPosts(ctx context.Context, arg ListPublicPostsParams) ([]Post, error)
-	ListPublicPostsByTag(ctx context.Context, arg ListPublicPostsByTagParams) ([]Post, error)
+	ListPosts(ctx context.Context, arg ListPostsParams) ([]Post, error)
+	ListPostsForExport(ctx context.Context) ([]Post, error)
 	ListTags(ctx context.Context) ([]ListTagsRow, error)
 	ListTokens(ctx context.Context) ([]ListTokensRow, error)
 	ListWebhooks(ctx context.Context) ([]Webhook, error)
@@ -79,12 +74,9 @@ type Querier interface {
 	MediaStats(ctx context.Context) ([]MediaStatsRow, error)
 	MergeTagPosts(ctx context.Context, arg MergeTagPostsParams) error
 	OverviewPosts(ctx context.Context, arg OverviewPostsParams) (OverviewPostsRow, error)
-	RemoveReaction(ctx context.Context, arg RemoveReactionParams) error
 	RenameTag(ctx context.Context, arg RenameTagParams) error
-	SearchAuthorPosts(ctx context.Context, arg SearchAuthorPostsParams) ([]Post, error)
-	SearchAuthorPostsLike(ctx context.Context, arg SearchAuthorPostsLikeParams) ([]Post, error)
-	SearchPublicPosts(ctx context.Context, arg SearchPublicPostsParams) ([]Post, error)
-	SearchPublicPostsLike(ctx context.Context, arg SearchPublicPostsLikeParams) ([]Post, error)
+	SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Post, error)
+	SearchPostsBySubstring(ctx context.Context, arg SearchPostsBySubstringParams) ([]Post, error)
 	SetAttachmentPoster(ctx context.Context, arg SetAttachmentPosterParams) error
 	TouchToken(ctx context.Context, arg TouchTokenParams) error
 	UpdatePasskeySignCount(ctx context.Context, arg UpdatePasskeySignCountParams) error

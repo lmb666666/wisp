@@ -31,7 +31,7 @@ func (s *Server) beginPasskeyRegistration(c echo.Context) error {
 	}
 	user, err := s.auth.Owner(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if s.passkeys == nil {
 		return apiError(c, http.StatusNotImplemented, "disabled", "Passkey 未启用（检查 WISP_PUBLIC_URL）")
@@ -52,7 +52,10 @@ func (s *Server) finishPasskeyRegistration(c echo.Context) error {
 	}
 	user, err := s.auth.Owner(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
+	}
+	if s.passkeys == nil {
+		return apiError(c, http.StatusNotImplemented, "disabled", "Passkey 未启用（检查 WISP_PUBLIC_URL）")
 	}
 	r, err := bufferedBody(c)
 	if err != nil {
@@ -98,7 +101,7 @@ func (s *Server) listPasskeys(c echo.Context) error {
 	}
 	rows, err := s.q.ListPasskeysByUser(c.Request().Context(), p.userID)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
@@ -114,7 +117,7 @@ func (s *Server) listPasskeys(c echo.Context) error {
 // deletePasskey DELETE /auth/passkeys/:id。
 func (s *Server) deletePasskey(c echo.Context) error {
 	if err := s.q.DeletePasskey(c.Request().Context(), c.Param("id")); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

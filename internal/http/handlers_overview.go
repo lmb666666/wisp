@@ -18,11 +18,11 @@ func (s *Server) overview(c echo.Context) error {
 		TodayStart: startOfToday(), TodayEnd: endOfToday(),
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	rows, err := s.q.MediaStats(ctx)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	var mediaCount, mediaBytes int64
 	byStorage := map[string]int64{}
@@ -34,7 +34,7 @@ func (s *Server) overview(c echo.Context) error {
 	}
 	tags, err := s.q.CountTags(ctx)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	dbBytes := int64(0)
 	dbPath := s.cfg.DBPath
@@ -52,8 +52,7 @@ func (s *Server) overview(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"posts": map[string]any{
-			"total": posts.Total, "today": posts.Today, "public": posts.Public,
-			"private": posts.Private,
+			"total": posts.Total, "today": posts.Today,
 		},
 		"attachments": map[string]any{
 			"count": mediaCount, "bytes": mediaBytes, "by_storage": byStorage,

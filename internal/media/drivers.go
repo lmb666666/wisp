@@ -109,7 +109,7 @@ type LskyStorage struct {
 
 func NewLskyStorage(cfg LskyConfig) (*LskyStorage, error) {
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
-	if !strings.HasPrefix(cfg.BaseURL, "http") || cfg.Token == "" {
+	if (!strings.HasPrefix(cfg.BaseURL, "http://") && !strings.HasPrefix(cfg.BaseURL, "https://")) || cfg.Token == "" {
 		return nil, fmt.Errorf("lsky 配置不完整：需要 base_url 与 token")
 	}
 	return &LskyStorage{

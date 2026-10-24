@@ -16,18 +16,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
 
 export function activeFilterCount(f: PostFilters): number {
   let n = 0
   if (f.from || f.to) n++
-  if (f.vis) n++
   const tags = new Set(splitTagFilter(f.tags))
   if (f.tag) tags.add(f.tag)
   return n + tags.size
 }
-
-const VISIBILITIES = ["public", "private"] as const
 
 function dateInput(ts?: number): string {
   if (!ts) return ""
@@ -59,7 +55,7 @@ export function FilterPanel({
   onOpenChange: (open: boolean) => void
   filters: PostFilters
   isOwner: boolean
-  onApply: (next: Pick<PostFilters, "from" | "to" | "vis" | "tags">) => void
+  onApply: (next: Pick<PostFilters, "from" | "to" | "tags">) => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,19 +73,17 @@ export function FilterPanel({
 
 function FilterForm({
   filters,
-  isOwner,
   onApply,
   onClose,
 }: {
   filters: PostFilters
   isOwner: boolean
-  onApply: (next: Pick<PostFilters, "from" | "to" | "vis" | "tags">) => void
+  onApply: (next: Pick<PostFilters, "from" | "to" | "tags">) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const [fromDate, setFromDate] = useState(() => dateInput(filters.from))
   const [toDate, setToDate] = useState(() => dateInput(filters.to))
-  const [vis, setVis] = useState(filters.vis ?? "")
   const [selected, setSelected] = useState<string[]>(() => {
     const tags = splitTagFilter(filters.tags)
     if (filters.tag && !tags.includes(filters.tag)) tags.unshift(filters.tag)
@@ -128,14 +122,13 @@ function FilterForm({
     onApply({
       from,
       to,
-      vis: isOwner && vis ? vis : undefined,
       tags: chosen.length ? JSON.stringify(chosen) : undefined,
     })
     onClose()
   }
 
   const reset = () => {
-    onApply({ from: undefined, to: undefined, vis: undefined, tags: undefined })
+    onApply({ from: undefined, to: undefined, tags: undefined })
     onClose()
   }
 
@@ -203,36 +196,6 @@ function FilterForm({
           </div>
         </div>
 
-        {isOwner && (
-          <div>
-            <p className="mb-2 text-sm font-medium">{t("filter.visibility")}</p>
-            <div className="bg-muted flex flex-wrap gap-1 rounded-xl p-1">
-              <button
-                type="button"
-                onClick={() => setVis("")}
-                className={cn(
-                  "flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors",
-                  vis === "" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground",
-                )}
-              >
-                {t("filter.visAll")}
-              </button>
-              {VISIBILITIES.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVis(v)}
-                  className={cn(
-                    "flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors",
-                    vis === v ? "bg-card text-foreground shadow-xs" : "text-muted-foreground",
-                  )}
-                >
-                  {t(`filter.vis.${v}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">

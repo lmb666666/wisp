@@ -34,8 +34,17 @@ func (u *wispUser) WebAuthnIcon() string                       { return "" }
 type WebAuthnService struct {
 	wa       *webauthn.WebAuthn
 	q        repo.Querier
-	sessions sync.Map // sessionID -> webauthn.SessionData
+	sessions sync.Map // sessionID -> ceremonyEntry
 }
+
+// ceremonyEntry 仪式数据 + 过期时间：begin 不需要认证，必须有 TTL 防内存堆积。
+type ceremonyEntry struct {
+	data *webauthn.SessionData
+	exp  time.Time
+}
+
+// ceremonyTTL 未完成仪式的存活时间。
+const ceremonyTTL = 5 * time.Minute
 
 func NewWebAuthnService(q repo.Querier, publicURL string) (*WebAuthnService, error) {
 	u, err := url.Parse(publicURL)
@@ -54,8 +63,19 @@ func NewWebAuthnService(q repo.Querier, publicURL string) (*WebAuthnService, err
 }
 
 func (s *WebAuthnService) storeSession(sdata *webauthn.SessionData) string {
-	id, _ := randomToken(16)
-	s.sessions.Store(id, sdata)
+	id, err := randomToken(16)
+	if err != nil {
+		// 熵源失败时不能静默用空 id（会与他人碰撞/可预测）
+		return ""
+	}
+	now := time.Now()
+	s.sessions.Range(func(key, value any) bool {
+		if e, ok := value.(*ceremonyEntry); ok && now.After(e.exp) {
+			s.sessions.Delete(key)
+		}
+		return true
+	})
+	s.sessions.Store(id, &ceremonyEntry{data: sdata, exp: now.Add(ceremonyTTL)})
 	return id
 }
 
@@ -64,11 +84,11 @@ func (s *WebAuthnService) loadSession(id string) (webauthn.SessionData, error) {
 	if !ok {
 		return webauthn.SessionData{}, fmt.Errorf("仪式已过期，请重新发起")
 	}
-	sd, _ := v.(*webauthn.SessionData)
-	if sd == nil {
+	e, _ := v.(*ceremonyEntry)
+	if e == nil || e.data == nil {
 		return webauthn.SessionData{}, fmt.Errorf("仪式数据无效")
 	}
-	return *sd, nil
+	return *e.data, nil
 }
 
 // loadWispUser 从数据库装配 webauthn.User（含全部已注册凭证）。

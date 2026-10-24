@@ -10,7 +10,8 @@
     "more": "更多",
     "cancel": "取消",
     "done": "完成",
-    "remove": "移除"
+    "remove": "移除",
+    "loadFailed": "加载失败，请重试。"
   },
   "nav": {
     "stats": "统计",
@@ -54,9 +55,6 @@
   },
   "publish": {
     "placeholder": "写点什么…",
-    "visibility": "可见性",
-    "visPublic": "公开",
-    "visPrivate": "私密",
     "uploading": "上传中",
     "submit": "发布",
     "offlineQueued": "已离线保存，联网后自动发送。",
@@ -90,9 +88,6 @@
   "card": {
     "edited": "已编辑",
     "detail": "详情",
-    "addReaction": "添加表情",
-    "vis_private": "私密",
-    "vis_public": "公开",
     "jump": "打开",
     "imageOnly": "(图片)",
     "share": "分享",
@@ -143,13 +138,6 @@
     "create": "创建",
     "creating": "创建中…",
     "secretOnce": "签名密钥（仅显示一次，请立即保存）：",
-    "notifyTitle": "通知",
-    "notifyHint": "有人点赞时通知你。留空即关闭。",
-    "ntfyUrl": "ntfy 主题地址",
-    "ntfyPlaceholder": "https://ntfy.sh/wisp-你的私密主题",
-    "barkUrl": "Bark 地址",
-    "notifyOnReactions": "点赞时推送",
-    "saveNotify": "保存通知设置",
     "saved": "已保存"
   },
   "storage": {
@@ -185,7 +173,9 @@
     "limits": "Memos 与 Moments 的导出不含媒体文件，需要从原站另外迁移。Ech0 胶囊会连图片一起导入。",
     "memosHint": "官方导出的 JSON 文件（Settings → Export，或 API 导出）",
     "momentsHint": "moments 的 db.sqlite（容器内 /app/data/db.sqlite）",
-    "ech0Hint": "ech0 export capsule 导出的 zip（文本部分）"
+    "ech0Hint": "ech0 export capsule 导出的 zip（文本部分）",
+    "chooseFile": "选择文件",
+    "noFile": "未选择文件"
   },
   "stats": {
     "tabStats": "统计",
@@ -287,7 +277,6 @@
     "importTitle": "导入旧数据",
     "capsuleTitle": "导出内容包",
     "capsuleHint": "Markdown + 原图 + 扩展卡片，打包成 zip。可在任意 Wisp 实例导入，也可长期归档。",
-    "includePrivate": "包含私密内容",
     "capsuleButton": "导出内容包",
     "backupScheduleHint": "自动为数据库生成一致性快照；媒体文件不在快照内。失败只记日志，不影响站点。",
     "backupEnabled": "启用自动备份",
@@ -387,12 +376,6 @@
     "from": "开始",
     "to": "结束",
     "invalidRange": "开始日期不能晚于结束日期。",
-    "visibility": "可见性",
-    "visAll": "全部",
-    "vis": {
-      "public": "公开",
-      "private": "私密"
-    },
     "tags": "标签",
     "tagSearch": "搜索标签",
     "tagSelected": "已选 {{count}} 个",
@@ -410,7 +393,6 @@
     "today": "今日发布",
     "media": "媒体占用",
     "tagCount": "标签",
-    "postsHint": "公开 {{public}} · 私密 {{private}}",
     "todayHint": "今天新增的说说",
     "mediaHint": "{{count}} 个文件 · {{storage}}",
     "tagsHint": "数据库 {{size}}",

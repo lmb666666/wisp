@@ -88,6 +88,9 @@ docker run --rm -v "$(pwd)/data:/data" alpine:latest chown -R 1000:1000 /data
 
 ## 反向代理
 
+> 反代部署请同时设置 `WISP_TRUST_PROXIES=true`，wisp 才会从 `X-Forwarded-For`
+> 识别真实客户端 IP（限流按 IP 计数）；仅直连部署时保持默认 false。
+
 ### Caddy（自动 HTTPS，最省心）
 
 ```caddy

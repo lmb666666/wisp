@@ -16,11 +16,11 @@ func (s *Server) getBackupSettings(c echo.Context) error {
 	ctx := c.Request().Context()
 	st, err := s.backup.Settings(ctx)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	files, err := s.backup.Files()
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"settings": st, "backups": files})
 }
@@ -36,7 +36,7 @@ func (s *Server) putBackupSettings(c echo.Context) error {
 	}
 	st, err := s.backup.Save(c.Request().Context(), in)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, st)
 }

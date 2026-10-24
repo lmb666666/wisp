@@ -36,9 +36,9 @@ Wisp 是一款单作者、自托管的轻量「说说 / 朋友圈」。没有推
 
 **写作与浏览**
 - Markdown 编辑器（TipTap），粘贴 / 拖拽图片自动压缩上传
-- 公开 / 私密两种可见性；草稿、离线队列、PWA 分享菜单直达发布
+- 草稿、离线队列、PWA 分享菜单直达发布
 - 时间线按日分组、图片九宫格、blurhash 占位、lightbox
-- 点赞、标签聚合、全文搜索、日期 × 可见性 × 多标签组合筛选
+- 标签聚合、全文搜索、日期 × 多标签组合筛选
 - 浅色 / 深色主题，中英文界面，Passkey 登录
 
 **媒体与扩展卡片**
@@ -115,6 +115,7 @@ make dev          # 同时启动 Go API（:8080）与 Vite（:5173）
 | `WISP_ENABLE_SWAGGER` | `false` | 暴露 `/swagger` 与 `/swagger/openapi.yaml` |
 | `WISP_API_RATE_LIMIT` | `20` | API 限流（每秒 / IP） |
 | `WISP_CORS_ORIGINS` | （空） | 允许跨域调用 API 的来源，逗号分隔 |
+| `WISP_TRUST_PROXIES` | `false` | 置 `true` 时从 `X-Forwarded-For` 取客户端 IP（限流用），仅在可信反向代理后开启 |
 | `WISP_METING_API` | （空） | Meting 音乐解析端点；留空时不提供播放器 |
 | `WISP_GEOCODE_URL` | （空） | Nominatim 兼容端点；留空时位置卡只支持定位/手填 |
 

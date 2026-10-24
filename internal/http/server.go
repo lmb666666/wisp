@@ -96,6 +96,14 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	// 限流按客户端 IP 计数。默认信任 TCP 对端（直连部署）；
+	// 反代部署必须设 WISP_TRUST_PROXIES=true，否则所有请求共享代理 IP，
+	// 而信任 XFF 又可被伪造绕过限流——两者取其一，默认收紧。
+	if cfg.TrustProxy {
+		e.IPExtractor = echo.ExtractIPFromXFFHeader()
+	} else {
+		e.IPExtractor = echo.ExtractIPDirect()
+	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.Secure())
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{Skipper: func(c echo.Context) bool {
@@ -109,8 +117,8 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 
 	// 本地附件静态路由：始终挂在 LocalStore 上（生产 Storage 是可切换的 Selector）
 	if deps.LocalStore != nil {
-		e.GET("/media/*", echo.WrapHandler(
-			http.StripPrefix("/media/", http.FileServer(http.Dir(deps.LocalStore.Root())))))
+		e.GET("/media/*", echo.WrapHandler(attachmentHeaders(
+			http.StripPrefix("/media/", http.FileServer(noDirFS{http.Dir(deps.LocalStore.Root())})))))
 	}
 
 	// 前端构建产物（/assets/*）——必须在 SPA fallback 之前注册
@@ -135,6 +143,17 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	// ---- API ----
 	api := e.Group("/api/v1")
 	api.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(cfg.APIRateLimit))))
+	// JSON 端点限 4MB 请求体；multipart（上传/导入）走各自的业务上限
+	api.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit: "4M",
+		Skipper: func(c echo.Context) bool {
+			switch c.Path() {
+			case "/api/v1/attachments", "/api/v1/attachments/:id/poster", "/api/v1/admin/import":
+				return true
+			}
+			return false
+		},
+	}))
 	if len(cfg.CORSOrigins) > 0 {
 		api.Use(corsForAPI(cfg.CORSOrigins))
 	}
@@ -166,11 +185,9 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	api.GET("/posts/:id", s.getPost, s.resolveAuth)
 	api.PATCH("/posts/:id", s.updatePost, s.resolveAuth, s.requireWrite)
 	api.DELETE("/posts/:id", s.deletePost, s.resolveAuth, s.requireWrite)
-	api.POST("/posts/:id/reactions", s.addReaction)
-	api.DELETE("/posts/:id/reactions", s.removeReaction)
 	api.GET("/search", s.searchPosts, s.resolveAuth)
 
-	api.GET("/tags", s.listTags)
+	api.GET("/tags", s.listTags, s.resolveAuth)
 	api.PATCH("/tags/:id", s.renameTag, s.requireUser)
 	api.POST("/tags/merge", s.mergeTags, s.requireUser)
 	api.DELETE("/tags/:id", s.deleteTag, s.requireUser)
@@ -194,10 +211,9 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	api.GET("/admin/settings/geo", s.getGeoSettings, s.requireUser)
 	api.GET("/admin/settings/meting", s.getMetingSettings, s.requireUser)
 	api.PUT("/admin/settings/meting", s.putMetingSettings, s.requireUser)
-	api.GET("/admin/settings/notify", s.getNotifySettings, s.requireUser)
-	api.PUT("/admin/settings/notify", s.putNotifySettings, s.requireUser)
-	api.POST("/attachments", s.uploadAttachment, s.resolveAuth, s.requireWrite)
-	api.POST("/attachments/:id/poster", s.uploadPoster, s.resolveAuth, s.requireWrite)
+	uploadLimit := middleware.BodyLimit("40M") // SI 单位 40MB：合法 32MiB+multipart overhead 不触发，超大恶意体才早期拒绝
+	api.POST("/attachments", s.uploadAttachment, s.resolveAuth, s.requireWrite, uploadLimit)
+	api.POST("/attachments/:id/poster", s.uploadPoster, s.resolveAuth, s.requireWrite, uploadLimit)
 
 	if cfg.EnableSwagger {
 		e.GET("/swagger", func(c echo.Context) error { return c.HTML(http.StatusOK, swaggerUI) })
@@ -211,6 +227,8 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 }
 
 func (s *Server) spaIndex(c echo.Context) error {
+	// index.html 不能被启发式缓存驻留，否则发版后旧资产路径 404
+	c.Response().Header().Set("Cache-Control", "no-cache")
 	extra := `<meta property="og:type" content="website"/>` + s.defaultOGImage()
 	page := injectOG(s.indexHTML, "Wisp", "轻轻说出，牢牢拥有。自托管的轻量说说。", extra)
 	return c.HTML(http.StatusOK, page)
@@ -230,7 +248,7 @@ func (s *Server) postPage(c echo.Context) error {
 	title, desc := "Wisp", "来自 Wisp 的一条动态"
 	extra := ""
 
-	dto, err := s.posts.Get(c.Request().Context(), id, false, "")
+	dto, err := s.posts.Get(c.Request().Context(), id)
 	found := false
 	switch {
 	case err == nil:
@@ -293,7 +311,7 @@ func corsForAPI(allowed []string) echo.MiddlewareFunc {
 				h.Set("Access-Control-Allow-Origin", origin)
 				h.Set("Vary", "Origin")
 				h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key, X-Client-ID")
+				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key")
 				h.Set("Access-Control-Max-Age", "86400")
 				if c.Request().Method == http.MethodOptions {
 					return c.NoContent(http.StatusNoContent)
@@ -341,4 +359,40 @@ func (s *Server) serveRootFile(c echo.Context) error {
 		c.Response().Header().Set("Cache-Control", "public, max-age=3600")
 	}
 	return c.Blob(http.StatusOK, ctype, data)
+}
+
+// noDirFS 包装目录 FS：目录请求返回 404，杜绝目录列表泄露附件文件名。
+type noDirFS struct{ dir http.Dir }
+
+func (n noDirFS) Open(name string) (http.File, error) {
+	f, err := n.dir.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	st, err := f.Stat()
+	if err == nil && st.IsDir() {
+		f.Close()
+		return nil, fs.ErrNotExist
+	}
+	return f, nil
+}
+
+// inlineMediaExts 可以在浏览器内联展示的媒体扩展名；其余（.bin/.txt 等任意文件）
+// 强制下载——distroless 无 mime.types 时 .bin 可能被嗅探成 text/html，成为同源 XSS 载体。
+var inlineMediaExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".avif": true,
+	".mp4": true, ".webm": true, ".mov": true,
+	".mp3": true, ".m4a": true, ".ogg": true, ".wav": true, ".flac": true,
+}
+
+// attachmentHeaders 对非内联扩展的响应加 attachment 下载头。
+func attachmentHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !inlineMediaExts[strings.ToLower(filepath.Ext(r.URL.Path))] {
+			w.Header().Set("Content-Disposition", "attachment")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("Content-Type", "application/octet-stream")
+		}
+		next.ServeHTTP(w, r)
+	})
 }

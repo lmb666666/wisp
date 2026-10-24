@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
+import { toast } from "sonner"
 
 import { flushOutbox } from "@/api/outbox"
 
@@ -11,9 +12,17 @@ export function useOutboxFlusher(enabled: boolean) {
     if (!enabled) return
 
     const run = async () => {
-      const sent = await flushOutbox()
+      const { sent, needsAuth, dropped } = await flushOutbox()
       if (sent > 0) {
         qc.invalidateQueries({ queryKey: ["posts"] })
+        qc.invalidateQueries({ queryKey: ["tags"] })
+      }
+      if (needsAuth) {
+        // 只在真的有内容被挡住时提示（下次冲刷有结果仍会提醒）
+        toast.warning("有离线内容等待发布，请先重新登录")
+      }
+      if (dropped > 0) {
+        toast.error("有离线内容发布失败（请求被拒绝），已从队列移除")
       }
     }
 

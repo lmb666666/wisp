@@ -155,149 +155,34 @@ func (q *Queries) ListAttachmentOnlyFingerprints(ctx context.Context) ([]ListAtt
 	return items, nil
 }
 
-const listAuthorPosts = `-- name: ListAuthorPosts :many
-SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
-WHERE (published_at < ?1
-       OR (published_at = ?1 AND id < ?2))
-ORDER BY published_at DESC, id DESC
-LIMIT ?3
-`
-
-type ListAuthorPostsParams struct {
-	Before   int64
-	BeforeID string
-	Limit    int64
-}
-
-func (q *Queries) ListAuthorPosts(ctx context.Context, arg ListAuthorPostsParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listAuthorPosts, arg.Before, arg.BeforeID, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ContentMd,
-			&i.ContentHtml,
-			&i.Visibility,
-			&i.Location,
-			&i.PublishedAt,
-			&i.EditedAt,
-			&i.Source,
-			&i.Client,
-			&i.CreatedAt,
-			&i.Blocks,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAuthorPostsByTag = `-- name: ListAuthorPostsByTag :many
-SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, p.published_at, p.edited_at, p.source, p.client, p.created_at, p.blocks FROM posts p
-JOIN post_tags pt ON pt.post_id = p.id
-JOIN tags t ON t.id = pt.tag_id
-WHERE t.name = ?
-  AND (p.published_at < ?2
-       OR (p.published_at = ?2 AND p.id < ?3))
-ORDER BY p.published_at DESC, p.id DESC
-LIMIT ?4
-`
-
-type ListAuthorPostsByTagParams struct {
-	Name     string
-	Before   int64
-	BeforeID string
-	Limit    int64
-}
-
-func (q *Queries) ListAuthorPostsByTag(ctx context.Context, arg ListAuthorPostsByTagParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listAuthorPostsByTag,
-		arg.Name,
-		arg.Before,
-		arg.BeforeID,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ContentMd,
-			&i.ContentHtml,
-			&i.Visibility,
-			&i.Location,
-			&i.PublishedAt,
-			&i.EditedAt,
-			&i.Source,
-			&i.Client,
-			&i.CreatedAt,
-			&i.Blocks,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listFilteredPosts = `-- name: ListFilteredPosts :many
 SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, p.published_at, p.edited_at, p.source, p.client, p.created_at, p.blocks FROM posts p
-WHERE (?1 = 1 OR p.visibility = 'public')
-  AND (?2 = '' OR p.visibility = ?2)
-  AND (?3 = 0 OR p.published_at >= ?3)
-  AND (?4 = 0 OR p.published_at <= ?4)
-  AND (?5 = 0 OR (
+WHERE (?1 = 0 OR p.published_at >= ?1)
+  AND (?2 = 0 OR p.published_at <= ?2)
+  AND (?3 = 0 OR (
       SELECT count(DISTINCT t.name) FROM post_tags pt
       JOIN tags t ON t.id = pt.tag_id
       WHERE pt.post_id = p.id
-        AND t.name IN (SELECT value FROM json_each(?6))
-  ) = ?5)
-  AND (p.published_at < ?7
-       OR (p.published_at = ?7 AND p.id < ?8))
+        AND t.name IN (SELECT value FROM json_each(?4))
+  ) = ?3)
+  AND (p.published_at < ?5
+       OR (p.published_at = ?5 AND p.id < ?6))
 ORDER BY p.published_at DESC, p.id DESC
-LIMIT ?9
+LIMIT ?7
 `
 
 type ListFilteredPostsParams struct {
-	AsAuthor   interface{}
-	Visibility interface{}
-	FromTs     interface{}
-	ToTs       interface{}
-	TagCount   interface{}
-	TagsJson   interface{}
-	Before     int64
-	BeforeID   string
-	Limit      int64
+	FromTs   interface{}
+	ToTs     interface{}
+	TagCount interface{}
+	TagsJson interface{}
+	Before   int64
+	BeforeID string
+	Limit    int64
 }
 
 func (q *Queries) ListFilteredPosts(ctx context.Context, arg ListFilteredPostsParams) ([]Post, error) {
 	rows, err := q.db.QueryContext(ctx, listFilteredPosts,
-		arg.AsAuthor,
-		arg.Visibility,
 		arg.FromTs,
 		arg.ToTs,
 		arg.TagCount,
@@ -432,65 +317,22 @@ func (q *Queries) ListPostFingerprints(ctx context.Context) ([]ListPostFingerpri
 	return items, nil
 }
 
-const listPostsForExport = `-- name: ListPostsForExport :many
+const listPosts = `-- name: ListPosts :many
 SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
-WHERE (?1 = 1 OR visibility != 'private')
-ORDER BY published_at ASC, id ASC
-`
-
-func (q *Queries) ListPostsForExport(ctx context.Context, includePrivate interface{}) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listPostsForExport, includePrivate)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ContentMd,
-			&i.ContentHtml,
-			&i.Visibility,
-			&i.Location,
-			&i.PublishedAt,
-			&i.EditedAt,
-			&i.Source,
-			&i.Client,
-			&i.CreatedAt,
-			&i.Blocks,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPublicPosts = `-- name: ListPublicPosts :many
-SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
-WHERE visibility = 'public'
-  AND (published_at < ?1
+WHERE (published_at < ?1
        OR (published_at = ?1 AND id < ?2))
 ORDER BY published_at DESC, id DESC
 LIMIT ?3
 `
 
-type ListPublicPostsParams struct {
+type ListPostsParams struct {
 	Before   int64
 	BeforeID string
 	Limit    int64
 }
 
-func (q *Queries) ListPublicPosts(ctx context.Context, arg ListPublicPostsParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicPosts, arg.Before, arg.BeforeID, arg.Limit)
+func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, listPosts, arg.Before, arg.BeforeID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -525,31 +367,12 @@ func (q *Queries) ListPublicPosts(ctx context.Context, arg ListPublicPostsParams
 	return items, nil
 }
 
-const listPublicPostsByTag = `-- name: ListPublicPostsByTag :many
-SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, p.published_at, p.edited_at, p.source, p.client, p.created_at, p.blocks FROM posts p
-JOIN post_tags pt ON pt.post_id = p.id
-JOIN tags t ON t.id = pt.tag_id
-WHERE p.visibility = 'public' AND t.name = ?
-  AND (p.published_at < ?2
-       OR (p.published_at = ?2 AND p.id < ?3))
-ORDER BY p.published_at DESC, p.id DESC
-LIMIT ?4
+const listPostsForExport = `-- name: ListPostsForExport :many
+SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts ORDER BY published_at ASC, id ASC
 `
 
-type ListPublicPostsByTagParams struct {
-	Name     string
-	Before   int64
-	BeforeID string
-	Limit    int64
-}
-
-func (q *Queries) ListPublicPostsByTag(ctx context.Context, arg ListPublicPostsByTagParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listPublicPostsByTag,
-		arg.Name,
-		arg.Before,
-		arg.BeforeID,
-		arg.Limit,
-	)
+func (q *Queries) ListPostsForExport(ctx context.Context) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, listPostsForExport)
 	if err != nil {
 		return nil, err
 	}

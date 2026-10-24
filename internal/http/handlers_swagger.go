@@ -43,20 +43,12 @@ components:
         id: { type: string }
         content_md: { type: string }
         content_html: { type: string }
-        visibility: { type: string, enum: [public, private] }
+        visibility: { type: string, enum: [public] }
         published_at: { type: integer, description: unix 秒，可改（补发） }
         edited_at: { type: integer }
         source: { type: string, example: api }
         tags: { type: array, items: { type: string } }
         attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' } }
-        reactions:
-          type: array
-          items:
-            type: object
-            properties:
-              emoji: { type: string }
-              count: { type: integer }
-              mine: { type: boolean }
         blocks:
           type: array
           description: 扩展卡片（与正文分离）：音乐 / GitHub / 位置 / 网站 / 视频
@@ -132,7 +124,6 @@ paths:
         - { name: tags, in: query, schema: { type: string, description: "JSON 数组或逗号分隔；ALL 语义" } }
         - { name: from, in: query, schema: { type: integer, description: unix 秒，含边界 } }
         - { name: to, in: query, schema: { type: integer, description: unix 秒，含边界 } }
-        - { name: vis, in: query, schema: { type: string, enum: [public, private], description: 游客强制 public } }
       responses: { "200": { description: OK } }
     post:
       summary: 发帖（需要 write）
@@ -147,7 +138,7 @@ paths:
               required: [content_md]
               properties:
                 content_md: { type: string }
-                visibility: { type: string, default: public }
+                visibility: { type: string, default: public, description: 仅 public（私密发布已移除） }
                 published_at: { type: integer }
                 attachment_ids: { type: array, items: { type: string } }
                 client: { type: string }
@@ -177,7 +168,6 @@ paths:
               type: object
               properties:
                 content_md: { type: string }
-                visibility: { type: string }
                 location: { type: string }
                 published_at: { type: integer }
                 blocks:
@@ -194,23 +184,6 @@ paths:
     delete:
       summary: 删除（连带清理本地附件文件）
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
-      responses: { "204": { description: OK } }
-  /posts/{id}/reactions:
-    post:
-      security: []
-      summary: 点赞（需 X-Client-ID 头，幂等）
-      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
-      requestBody:
-        content:
-          application/json:
-            schema: { type: object, required: [emoji], properties: { emoji: { type: string } } }
-      responses: { "204": { description: OK } }
-    delete:
-      security: []
-      summary: 取消点赞
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-        - { name: emoji, in: query, required: true, schema: { type: string } }
       responses: { "204": { description: OK } }
   /search:
     get:
@@ -312,7 +285,6 @@ paths:
     get:
       summary: 导出内容包（zip：Markdown + 原图 + 扩展卡片）
       security: [{ sessionCookie: [] }]
-      parameters: [{ name: include_private, in: query, schema: { type: integer, enum: [0, 1] } }]
       responses: { "200": { description: zip 流 } }
   /admin/media:
     get:

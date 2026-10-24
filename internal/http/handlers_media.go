@@ -43,13 +43,13 @@ func (s *Server) uploadPoster(c echo.Context) error {
 	// 封面固定写本地存储：小文件，且保证 /media 路由始终可访问（主存储可能是 S3/图床）
 	key := posterKey(att.ID)
 	if err := s.localStore.Put(c.Request().Context(), key, f, "image/jpeg"); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if err := s.q.SetAttachmentPoster(c.Request().Context(), repo.SetAttachmentPosterParams{
 		PosterPath: key, ID: att.ID,
 	}); err != nil {
 		_ = s.localStore.Delete(c.Request().Context(), key)
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"poster_url": "/media/" + key})
 }

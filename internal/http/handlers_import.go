@@ -46,7 +46,7 @@ func (s *Server) adminImport(c echo.Context) error {
 	if source == "wisp" {
 		tmp, err := os.CreateTemp("", "wisp-capsule-*.zip")
 		if err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 		defer func() { _ = os.Remove(tmp.Name()) }()
 		if _, err := io.Copy(tmp, f); err != nil {
@@ -136,7 +136,6 @@ func (s *Server) adminImport(c echo.Context) error {
 
 		dto, err := s.posts.Create(ctx, s.ownerID(ctx), service.CreateParams{
 			ContentMD:     p.ContentMD,
-			Visibility:    p.Visibility,
 			Location:      p.Location,
 			PublishedAt:   p.PublishedAt,
 			Source:        "import",

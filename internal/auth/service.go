@@ -33,9 +33,14 @@ func hashToken(plain string) string {
 }
 
 // Login 校验用户名密码，创建会话，返回明文会话令牌（写入 Cookie）。
+// dummyArgon2Hash 固定参数哈希：用户名不存在时跑一次等价校验，抹平响应时间差。
+const dummyArgon2Hash = "$argon2id$v=19$m=65536,t=3,p=4$YIBwzttE6i5EKJCQbIiuig$WggpO7dq1MAndufQwE4Z3atlVB5HcPpWhCCWth/rhio"
+
 func (s *Service) Login(ctx context.Context, username, password, userAgent string) (string, error) {
 	user, err := s.q.GetUserByUsername(ctx, username)
 	if err != nil {
+		// 对不存在的用户名跑一次固定哈希校验，抹平与真实校验的时间差（防用户名枚举）
+		_, _ = VerifyPassword(password, dummyArgon2Hash)
 		return "", ErrInvalidCredentials
 	}
 	ok, err := VerifyPassword(password, user.PasswordHash)

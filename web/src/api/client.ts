@@ -1,6 +1,6 @@
 import { ofetch, type FetchError } from "ofetch"
 
-/** 访客匿名标识（reactions 用）：localStorage 持久化的 UUID。 */
+/** 访客匿名标识：localStorage 持久化的 UUID。 */
 export function getClientID(): string {
   let id = localStorage.getItem("wisp-client-id")
   if (!id) {
@@ -27,7 +27,7 @@ export interface ApiError {
 
 export function apiError(err: unknown): ApiError {
   const e = err as FetchError<{ error?: ApiError }>
-  return e?.data?.error ?? { code: "unknown", message: e?.message ?? "请求失败" }
+  return e?.data?.error ?? { code: "unknown", message: e?.message ?? "request failed" }
 }
 
 export interface Attachment {
@@ -40,12 +40,6 @@ export interface Attachment {
   blurhash?: string
   width: number
   height: number
-}
-
-export interface Reaction {
-  emoji: string
-  count: number
-  mine: boolean
 }
 
 export interface PostBlock {
@@ -65,7 +59,7 @@ export interface Post {
   id: string
   content_md: string
   content_html: string
-  visibility: "public" | "private"
+  visibility: "public"
   location?: string
   published_at: number
   edited_at?: number
@@ -73,7 +67,6 @@ export interface Post {
   client?: string
   tags: string[]
   attachments: Attachment[]
-  reactions: Reaction[]
   blocks: PostBlock[]
 }
 
@@ -87,7 +80,6 @@ export interface PostFilters {
   tag?: string
   from?: number
   to?: number
-  vis?: string
   tags?: string
 }
 

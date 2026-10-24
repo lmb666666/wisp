@@ -44,7 +44,7 @@ func TestMigrateFreshDatabase(t *testing.T) {
 	for _, table := range []string{
 		"users", "sessions", "posts", "attachments", "tags",
 		"post_tags", "settings", "link_previews", "api_tokens",
-		"idempotency_keys", "reactions", "posts_fts",
+		"idempotency_keys", "posts_fts",
 	} {
 		var n int
 		if err := database.QueryRow(
@@ -112,8 +112,8 @@ func TestMigrateSnapshotBeforeUpgrade(t *testing.T) {
 		`SELECT visibility FROM posts WHERE id = '01DRILLUNLISTED0000000'`).Scan(&visibility); err != nil {
 		t.Fatal(err)
 	}
-	if visibility != "private" {
-		t.Errorf("unlisted should migrate to private, got %q", visibility)
+	if visibility != "public" {
+		t.Errorf("unlisted should migrate to public (via private), got %q", visibility)
 	}
 	if _, err := database.Exec(`SELECT pinned_at FROM posts LIMIT 1`); err == nil {
 		t.Error("pinned_at column should be dropped")

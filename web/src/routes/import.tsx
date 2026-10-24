@@ -93,9 +93,9 @@ export function ImportSection() {
           />
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("import-file")?.click()}>
-              <Upload className="size-3.5" /> 选择文件
+              <Upload className="size-3.5" /> {t("import.chooseFile")}
             </Button>
-            <span className="text-muted-foreground truncate text-xs">{file?.name ?? "未选择文件"}</span>
+            <span className="text-muted-foreground truncate text-xs">{file?.name ?? t("import.noFile")}</span>
           </div>
         </div>
 

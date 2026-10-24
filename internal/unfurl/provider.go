@@ -306,29 +306,56 @@ func resolveOG(ctx context.Context, rawURL string, fetch Fetcher) (*Preview, err
 
 // ---------- SSRF 防护 ----------
 
+// safeDialContext 先解析并校验全部 IP，再直连「已校验的 IP」——
+// 消除校验与建连之间二次解析的 DNS rebinding 窗口。
+func safeDialContext(dialer *net.Dialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("resolve %s: %w", host, err)
+		}
+		for _, ip := range ips {
+			if isBlockedIP(ip.IP) {
+				return nil, fmt.Errorf("blocked private address for %s", host)
+			}
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no addresses for %s", host)
+		}
+		// 按解析结果逐个尝试（v4/v6），连的 IP 就是校验过的 IP
+		var lastErr error
+		for _, ip := range ips {
+			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+			if err == nil {
+				return conn, nil
+			}
+			lastErr = err
+		}
+		return nil, lastErr
+	}
+}
+
+// NewSafeClient 返回带私网/环回防护的 HTTP 客户端（unfurl、capsule 导出共用）。
+func NewSafeClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		DialContext:           safeDialContext(&net.Dialer{Timeout: fetchTimeout}),
+		Proxy:                 nil, // 不受 HTTP_PROXY 干扰
+		MaxIdleConnsPerHost:   2,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}
+	return &http.Client{Timeout: timeout, Transport: transport}
+}
+
 // NewFetcher 面向用户内容的抓取器：拒绝解析到私网/环回/链路本地的地址
 // （防内网探测与云元数据端点 169.254.169.254）。
 func NewFetcher() Fetcher {
-	dialer := &net.Dialer{Timeout: fetchTimeout}
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			host, _, err := net.SplitHostPort(addr)
-			if err != nil {
-				return nil, err
-			}
-			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-			if err != nil {
-				return nil, fmt.Errorf("resolve %s: %w", host, err)
-			}
-			for _, ip := range ips {
-				if isBlockedIP(ip.IP) {
-					return nil, fmt.Errorf("blocked private address for %s", host)
-				}
-			}
-			return dialer.DialContext(ctx, network, addr)
-		},
-	}
-	hc := &http.Client{Timeout: fetchTimeout, Transport: transport}
+	hc := NewSafeClient(fetchTimeout)
 	return func(ctx context.Context, rawURL string) ([]byte, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 		if err != nil {

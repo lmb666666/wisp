@@ -31,7 +31,14 @@ export function PasskeysPage() {
 
 function ProfileCard() {
   const { t } = useTranslation()
-  const { data, isLoading } = useProfile()
+  const { data, isLoading, isError } = useProfile()
+  if (isError) {
+    return (
+      <section className="wisp-card p-5">
+        <p className="text-muted-foreground text-sm">{t("common.loadFailed")}</p>
+      </section>
+    )
+  }
   if (isLoading || !data) {
     return (
       <section className="wisp-card p-5">
@@ -159,7 +166,7 @@ function PasswordCard() {
 
 function PasskeyCard() {
   const { t } = useTranslation()
-  const { data, isLoading } = usePasskeys(true)
+  const { data, isLoading, refetch } = usePasskeys(true)
   const del = useDeletePasskey()
   const [busy, setBusy] = useState(false)
 
@@ -170,7 +177,7 @@ function PasskeyCard() {
       const { session, credential } = await passkeyRegister(begin.session, begin.options)
       await passkeyFinishRegistration(session, credential)
       toast.success(t("settings.passkeyAdded"))
-      setTimeout(() => window.location.reload(), 400)
+      void refetch()
     } catch (err) {
       toast.error(apiError(err).message || (err instanceof Error ? err.message : t("auth.passkeyFailed")))
     } finally {

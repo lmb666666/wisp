@@ -41,7 +41,7 @@ func TestLoad10k(t *testing.T) {
 
 	q := repo.New(database)
 	authSvc := auth.NewService(q)
-	postSvc := service.NewPostService(q, "http://test.local", "")
+	postSvc := service.NewPostService(database, q, "http://test.local", "")
 	store, _ := media.NewLocalStorage(filepath.Join(dir, "media"))
 
 	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 100000}

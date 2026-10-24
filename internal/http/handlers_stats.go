@@ -15,7 +15,7 @@ type dailyRow struct {
 	Count int64  `json:"count"`
 }
 
-// statsDaily 每日发帖计数（热力图用）：?year=2026。登录后含私密。
+// statsDaily 每日发帖计数（热力图用）：?year=2026。
 func (s *Server) statsDaily(c echo.Context) error {
 	year := time.Now().Year()
 	if y, err := strconv.Atoi(c.QueryParam("year")); err == nil && y >= 2000 && y <= 2100 {
@@ -25,26 +25,14 @@ func (s *Server) statsDaily(c echo.Context) error {
 	end := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local).Unix()
 
 	var items []dailyRow
-	if s.current(c) != nil {
-		rows, err := s.q.DailyCountsAuthor(c.Request().Context(), repo.DailyCountsAuthorParams{
-			PublishedAt: start, PublishedAt_2: end,
-		})
-		if err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
-		}
-		for _, r := range rows {
-			items = append(items, dailyRow{Day: asString(r.Day), Count: r.Count})
-		}
-	} else {
-		rows, err := s.q.DailyCountsPublic(c.Request().Context(), repo.DailyCountsPublicParams{
-			PublishedAt: start, PublishedAt_2: end,
-		})
-		if err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
-		}
-		for _, r := range rows {
-			items = append(items, dailyRow{Day: asString(r.Day), Count: r.Count})
-		}
+	rows, err := s.q.DailyCounts(c.Request().Context(), repo.DailyCountsParams{
+		PublishedAt: start, PublishedAt_2: end,
+	})
+	if err != nil {
+		return s.internalError(c, err)
+	}
+	for _, r := range rows {
+		items = append(items, dailyRow{Day: asString(r.Day), Count: r.Count})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"year": year, "items": items})
 }

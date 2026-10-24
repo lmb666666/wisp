@@ -36,7 +36,7 @@ type createWebhookReq struct {
 func (s *Server) listWebhooksAdmin(c echo.Context) error {
 	rows, err := s.q.ListWebhooks(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
@@ -81,7 +81,7 @@ func (s *Server) createWebhook(c echo.Context) error {
 		CreatedAt: timeNowUnix(),
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusCreated, map[string]any{
 		"id": row.ID, "url": row.Url, "events": row.Events, "secret": secret,
@@ -91,7 +91,7 @@ func (s *Server) createWebhook(c echo.Context) error {
 // deleteWebhook DELETE /admin/webhooks/:id。
 func (s *Server) deleteWebhook(c echo.Context) error {
 	if err := s.q.DeleteWebhook(c.Request().Context(), c.Param("id")); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

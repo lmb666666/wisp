@@ -51,6 +51,20 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteSessionsByUserKeep = `-- name: DeleteSessionsByUserKeep :exec
+DELETE FROM sessions WHERE user_id = ?1 AND id != ?2
+`
+
+type DeleteSessionsByUserKeepParams struct {
+	UserID int64
+	KeepID string
+}
+
+func (q *Queries) DeleteSessionsByUserKeep(ctx context.Context, arg DeleteSessionsByUserKeepParams) error {
+	_, err := q.db.ExecContext(ctx, deleteSessionsByUserKeep, arg.UserID, arg.KeepID)
+	return err
+}
+
 const getUserBySession = `-- name: GetUserBySession :one
 SELECT u.id, u.username, u.password_hash, u.display_name, u.is_owner, u.created_at, u.updated_at FROM sessions s
 JOIN users u ON u.id = s.user_id

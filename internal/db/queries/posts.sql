@@ -23,39 +23,11 @@ UPDATE posts SET
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
--- name: ListPublicPosts :many
-SELECT * FROM posts
-WHERE visibility = 'public'
-  AND (published_at < sqlc.arg('before')
-       OR (published_at = sqlc.arg('before') AND id < sqlc.arg('before_id')))
-ORDER BY published_at DESC, id DESC
-LIMIT sqlc.arg('limit');
-
--- name: ListAuthorPosts :many
+-- name: ListPosts :many
 SELECT * FROM posts
 WHERE (published_at < sqlc.arg('before')
        OR (published_at = sqlc.arg('before') AND id < sqlc.arg('before_id')))
 ORDER BY published_at DESC, id DESC
-LIMIT sqlc.arg('limit');
-
--- name: ListPublicPostsByTag :many
-SELECT p.* FROM posts p
-JOIN post_tags pt ON pt.post_id = p.id
-JOIN tags t ON t.id = pt.tag_id
-WHERE p.visibility = 'public' AND t.name = ?
-  AND (p.published_at < sqlc.arg('before')
-       OR (p.published_at = sqlc.arg('before') AND p.id < sqlc.arg('before_id')))
-ORDER BY p.published_at DESC, p.id DESC
-LIMIT sqlc.arg('limit');
-
--- name: ListAuthorPostsByTag :many
-SELECT p.* FROM posts p
-JOIN post_tags pt ON pt.post_id = p.id
-JOIN tags t ON t.id = pt.tag_id
-WHERE t.name = ?
-  AND (p.published_at < sqlc.arg('before')
-       OR (p.published_at = sqlc.arg('before') AND p.id < sqlc.arg('before_id')))
-ORDER BY p.published_at DESC, p.id DESC
 LIMIT sqlc.arg('limit');
 
 -- name: CountPosts :one
@@ -74,9 +46,7 @@ SELECT id, content_md FROM posts;
 UPDATE posts SET content_html = ? WHERE id = ?;
 
 -- name: ListPostsForExport :many
-SELECT * FROM posts
-WHERE (sqlc.arg('include_private') = 1 OR visibility != 'private')
-ORDER BY published_at ASC, id ASC;
+SELECT * FROM posts ORDER BY published_at ASC, id ASC;
 
 -- name: ListPostFingerprints :many
 SELECT id, content_md, blocks FROM posts;
@@ -90,9 +60,7 @@ ORDER BY a.post_id, a.created_at ASC, a.id ASC;
 
 -- name: ListFilteredPosts :many
 SELECT p.* FROM posts p
-WHERE (sqlc.arg('as_author') = 1 OR p.visibility = 'public')
-  AND (sqlc.arg('visibility') = '' OR p.visibility = sqlc.arg('visibility'))
-  AND (sqlc.arg('from_ts') = 0 OR p.published_at >= sqlc.arg('from_ts'))
+WHERE (sqlc.arg('from_ts') = 0 OR p.published_at >= sqlc.arg('from_ts'))
   AND (sqlc.arg('to_ts') = 0 OR p.published_at <= sqlc.arg('to_ts'))
   AND (sqlc.arg('tag_count') = 0 OR (
       SELECT count(DISTINCT t.name) FROM post_tags pt

@@ -39,13 +39,13 @@ func (s *Server) listMedia(c echo.Context) error {
 		Kind: any(kind), Storage: any(storage), Orphan: any(orphan), Limit: limit, Offset: offset,
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	total, err := s.q.CountMedia(c.Request().Context(), repo.CountMediaParams{
 		Kind: any(kind), Storage: any(storage), Orphan: any(orphan),
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 
 	items := make([]map[string]any, 0, len(rows))
@@ -84,7 +84,7 @@ func (s *Server) listMedia(c echo.Context) error {
 func (s *Server) mediaStats(c echo.Context) error {
 	rows, err := s.q.MediaStats(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	byKind := map[string]map[string]any{}
 	var totalBytes int64
@@ -117,6 +117,10 @@ func (s *Server) deleteMedia(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
+	// 先删 DB 行再删对象：行删除失败时对象仍在（孤儿可再清）；反之则行指向 404 文件
+	if err := s.q.DeleteAttachment(ctx, att.ID); err != nil {
+		return s.internalError(c, err)
+	}
 	if att.StorageKey != "" {
 		if err := s.store.Delete(ctx, att.StorageKey); err != nil {
 			slog.Warn("delete media object failed", "id", att.ID, "key", att.StorageKey, "err", err)
@@ -137,9 +141,6 @@ func (s *Server) deleteMedia(c echo.Context) error {
 		if err := s.localStore.Delete(ctx, att.PosterPath); err != nil {
 			slog.Warn("delete media poster failed", "id", att.ID, "key", att.PosterPath, "err", err)
 		}
-	}
-	if err := s.q.DeleteAttachment(ctx, att.ID); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
 }

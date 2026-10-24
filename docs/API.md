@@ -13,7 +13,7 @@ Base URL：`/api/v1`。所有响应为 JSON（内容包/备份/媒体除外）�
 
 PAT 作用域：
 
-- `read`：读取（作者视角可读私密）
+- `read`：读取
 - `read,write`：读取 + 发帖/编辑/删除等
 
 PAT 在「设置 → API 令牌」创建。管理端点（导入、备份、媒体库、存储设置）只接受会话，不接受 PAT。
@@ -24,11 +24,9 @@ PAT 在「设置 → API 令牌」创建。管理端点（导入、备份、媒�
 |---|---|---|
 | `GET` | `/posts` | 时间线；`limit`、`before`、`tag`/`tags`、`from`/`to`、`vis` |
 | `POST` | `/posts` | 发帖（write）；支持 `Idempotency-Key` |
-| `GET` | `/posts/{id}` | 详情；private 对游客 404 |
+| `GET` | `/posts/{id}` | 详情 |
 | `PATCH` | `/posts/{id}` | 编辑（write） |
 | `DELETE` | `/posts/{id}` | 删除（write） |
-| `POST` | `/posts/{id}/reactions` | 点赞；需要 `X-Client-ID`；幂等 |
-| `DELETE` | `/posts/{id}/reactions?emoji=...` | 取消点赞 |
 | `GET` | `/search?q=` | 全文搜索（≥3 字符 FTS5，短词 LIKE） |
 | `GET` | `/tags` | 标签聚合（仅统计有帖子的标签） |
 | `PATCH` | `/tags/{id}` | 重命名（会话） |
@@ -57,7 +55,6 @@ curl "https://wisp.example.com/api/v1/posts?limit=20&before=1792230000.01M..."
 - `tag=设计`：单标签（兼容）
 - `tags=["设计","日记"]`：JSON 数组；也兼容逗号分隔。**ALL 语义**
 - `from` / `to`：unix 秒，含边界
-- `vis=public|private`：作者可筛；游客强制 public
 
 ## 发帖示例
 
@@ -94,7 +91,7 @@ curl -X POST https://wisp.example.com/api/v1/attachments \
 {"error":{"code":"bad_request","message":"..."}}
 ```
 
-常见状态：`400` 参数/校验、`401` 未认证、`403` 作用域/CSRF、`404` 不存在或私密、`409` 冲突、`413` 过大、`429` 限流。
+常见状态：`400` 参数/校验、`401` 未认证、`403` 作用域/CSRF、`404` 不存在、`409` 冲突、`413` 过大、`429` 限流。
 
 ## CORS
 

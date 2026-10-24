@@ -49,7 +49,7 @@ func newTestServer(t *testing.T) (baseURL string, owner *http.Client, guest *htt
 
 	q := repo.New(database)
 	authSvc := auth.NewService(q)
-	postSvc := service.NewPostService(q, "http://test.local", "")
+	postSvc := service.NewPostService(database, q, "http://test.local", "")
 	hooks := webhook.NewDispatcher(q)
 	hooks.Start()
 	postSvc.WithNotifier(hooks.Emit)
@@ -197,48 +197,9 @@ func TestAPIFullFlow(t *testing.T) {
 		t.Errorf("source = %s", post.Source)
 	}
 
-	// 私密帖：作者可见，游客 404
-	code, _ = ownerJSON(owner, "POST", base+"/api/v1/posts",
-		map[string]any{"content_md": "私密内容", "visibility": "private"})
-	if code != http.StatusCreated {
-		t.Fatalf("create private: %d", code)
-	}
-
-	if code, body = ownerJSON(owner, "GET", base+"/api/v1/posts", nil); code != 200 {
-		t.Fatalf("author list: %d", code)
-	}
-	if !strings.Contains(string(body), "私密内容") {
-		t.Error("author list should include private")
-	}
-	if code, body = ownerJSON(guest, "GET", base+"/api/v1/posts", nil); code != 200 {
+	// 可见性已移除：游客与作者看到同一公开时间线
+	if code, _ = ownerJSON(guest, "GET", base+"/api/v1/posts", nil); code != 200 {
 		t.Fatalf("guest list: %d", code)
-	}
-	if strings.Contains(string(body), "私密内容") {
-		t.Error("guest list must not include private")
-	}
-
-	code, _ = ownerJSON(guest, "GET", base+"/api/v1/posts", nil)
-	_ = code
-	// 找到私密帖 id 再验证游客 404
-	_, body = ownerJSON(owner, "GET", base+"/api/v1/posts?limit=50", nil)
-	var list struct {
-		Items []struct {
-			ID         string `json:"id"`
-			Visibility string `json:"visibility"`
-		} `json:"items"`
-	}
-	_ = json.Unmarshal(body, &list)
-	var privateID string
-	for _, it := range list.Items {
-		if it.Visibility == "private" {
-			privateID = it.ID
-		}
-	}
-	if privateID == "" {
-		t.Fatal("no private post in author list")
-	}
-	if code, _ = ownerJSON(guest, "GET", base+"/api/v1/posts/"+privateID, nil); code != http.StatusNotFound {
-		t.Errorf("guest get private should 404, got %d", code)
 	}
 
 	// --- 编辑（重渲染 + 重建标签）---
@@ -269,10 +230,10 @@ func TestAPIFullFlow(t *testing.T) {
 	}
 	readC := bearer(tok.Token)
 
-	// read 作用域可读（作者视角，含私密），不可写
+	// read 作用域可读，不可写
 	code, body = ownerJSON(readC, "GET", base+"/api/v1/posts?limit=50", nil)
-	if code != 200 || !strings.Contains(string(body), "私密内容") {
-		t.Errorf("pat read: %d", code)
+	if code != 200 || !strings.Contains(string(body), "编辑后的内容") {
+		t.Errorf("pat read: %d body=%.200s", code, body)
 	}
 	if code, _ = ownerJSON(readC, "POST", base+"/api/v1/posts",
 		map[string]string{"content_md": "x"}); code != http.StatusForbidden {
@@ -394,42 +355,6 @@ func TestAPIFullFlow(t *testing.T) {
 	}
 	if n := searchCount(owner, "内容"); n < 1 { // 2 字 → LIKE 兜底
 		t.Errorf("like search hits = %d, want >=1", n)
-	}
-
-	// --- 点赞：幂等 + mine 标记 + 取消 ---
-	guestWithID := bearerTransportClient("guest-client-0001", "")
-	code, _ = ownerJSON(guestWithID, "POST", base+"/api/v1/posts/"+post.ID+"/reactions",
-		map[string]string{"emoji": "👍"})
-	if code != http.StatusNoContent {
-		t.Fatalf("react: %d", code)
-	}
-	code, _ = ownerJSON(guestWithID, "POST", base+"/api/v1/posts/"+post.ID+"/reactions",
-		map[string]string{"emoji": "👍"})
-	if code != http.StatusNoContent {
-		t.Fatalf("re-react: %d", code)
-	}
-	code, body = ownerJSON(guestWithID, "GET", base+"/api/v1/posts/"+post.ID, nil)
-	var gp struct {
-		Reactions []struct {
-			Emoji string `json:"emoji"`
-			Count int64  `json:"count"`
-			Mine  bool   `json:"mine"`
-		} `json:"reactions"`
-	}
-	_ = json.Unmarshal(body, &gp)
-	if len(gp.Reactions) != 1 || gp.Reactions[0].Count != 1 || !gp.Reactions[0].Mine {
-		t.Fatalf("reactions = %+v, want one 👍 count=1 mine=true", gp.Reactions)
-	}
-	code, _ = ownerJSON(guestWithID, "DELETE", base+"/api/v1/posts/"+post.ID+"/reactions?emoji=%F0%9F%91%8D", nil)
-	if code != http.StatusNoContent {
-		t.Fatalf("unreact: %d", code)
-	}
-
-	// 未带 X-Client-ID 的访客不能点赞
-	noID := newClient()
-	if code, _ = ownerJSON(noID, "POST", base+"/api/v1/posts/"+post.ID+"/reactions",
-		map[string]string{"emoji": "👍"}); code != http.StatusBadRequest {
-		t.Errorf("react without client id should 400, got %d", code)
 	}
 
 	// --- 复合游标：同秒多帖不丢失、不重复 ---
@@ -712,26 +637,6 @@ func urlQueryEscape(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(url.QueryEscape(s), "+", "%20"), "%2B", "%2B")
 }
 
-func bearerTransportClient(clientID string, token string) *http.Client {
-	c := newClient()
-	base := http.DefaultTransport
-	c.Transport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		r2 := r.Clone(r.Context())
-		if clientID != "" {
-			r2.Header.Set("X-Client-ID", clientID)
-		}
-		if token != "" {
-			r2.Header.Set("Authorization", "Bearer "+token)
-		}
-		return base.RoundTrip(r2)
-	})
-	return c
-}
-
-type roundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-
 type bearerTransport struct {
 	token string
 	base  http.RoundTripper
@@ -770,7 +675,7 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	posts := []map[string]any{
 		{"content_md": "带标签和位置 #设计 #日记", "location": "上海 · 徐汇"},
 		{"content_md": "图片帖", "attachment_ids": []string{attID}},
-		{"content_md": "私密内容", "visibility": "private"},
+		{"content_md": "纯文本帖 #roundtrip"},
 		{"content_md": "", "blocks": []map[string]any{
 			{"type": "music", "url": "https://music.163.com/song?id=33894312"},
 			{"type": "location", "name": "杭州 · 西湖"},
@@ -784,7 +689,7 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	}
 
 	// 导出
-	req, _ := http.NewRequest("GET", baseA+"/api/v1/admin/export/capsule?include_private=1", nil)
+	req, _ := http.NewRequest("GET", baseA+"/api/v1/admin/export/capsule", nil)
 	resp, err := ownerA.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -863,7 +768,7 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	if len(list.Items) != 5 {
 		t.Fatalf("B posts = %d", len(list.Items))
 	}
-	var sawPrivate, sawLocationTag, sawImage, sawBlocks, sawImageOnly bool
+	var sawLocationTag, sawImage, sawBlocks, sawImageOnly bool
 	for _, it := range list.Items {
 		switch it.ContentMD {
 		case "带标签和位置 #设计 #日记":
@@ -876,8 +781,6 @@ func TestCapsuleRoundTrip(t *testing.T) {
 					_ = r.Body.Close()
 				}
 			}
-		case "私密内容":
-			sawPrivate = it.Visibility == "private"
 		case "":
 			if len(it.Blocks) == 2 {
 				sawBlocks = it.Blocks[0].Type == "music" && it.Blocks[1].Name == "杭州 · 西湖"
@@ -887,9 +790,9 @@ func TestCapsuleRoundTrip(t *testing.T) {
 			}
 		}
 	}
-	if !sawLocationTag || !sawImage || !sawPrivate || !sawBlocks || !sawImageOnly {
-		t.Fatalf("roundtrip mismatch: tag=%v image=%v private=%v blocks=%v imageOnly=%v",
-			sawLocationTag, sawImage, sawPrivate, sawBlocks, sawImageOnly)
+	if !sawLocationTag || !sawImage || !sawBlocks || !sawImageOnly {
+		t.Fatalf("roundtrip mismatch: tag=%v image=%v blocks=%v imageOnly=%v",
+			sawLocationTag, sawImage, sawBlocks, sawImageOnly)
 	}
 
 	// 再次导入应全部去重
@@ -1242,18 +1145,18 @@ func atoi(s string) int {
 	return n
 }
 
-// TestPostFilters 覆盖日期 × 可见性 × 多标签（ALL）× 游标组合筛选。
+// TestPostFilters 覆盖日期 × 多标签（ALL）× 游标组合筛选。
 func TestPostFilters(t *testing.T) {
-	base, owner, guest := newTestServer(t)
+	base, owner, _ := newTestServer(t)
 	if code, _ := ownerJSON(owner, "POST", base+"/api/v1/auth/init",
 		map[string]string{"username": "liang", "password": "password123"}); code != http.StatusCreated {
 		t.Fatalf("init: %d", code)
 	}
 	now := time.Now().Unix()
-	mk := func(md, visibility string, published int64) string {
+	mk := func(md string, published int64) string {
 		t.Helper()
 		code, body := ownerJSON(owner, "POST", base+"/api/v1/posts", map[string]any{
-			"content_md": md, "visibility": visibility, "published_at": published,
+			"content_md": md, "published_at": published,
 		})
 		if code != http.StatusCreated {
 			t.Fatalf("create %q: %d %s", md, code, body)
@@ -1264,11 +1167,9 @@ func TestPostFilters(t *testing.T) {
 		_ = json.Unmarshal(body, &p)
 		return p.ID
 	}
-	pA := mk("A #alpha #beta", "public", now-100)
-	pB := mk("B #alpha", "private", now-50)
-	pC := mk("C #beta", "private", now-10)
-	pD := mk("D #alpha #beta", "public", now-300)
-	pE := mk("E #alpha #beta #gamma", "public", now-20)
+	pA := mk("A #alpha #beta", now-100)
+	pD := mk("D #alpha #beta", now-300)
+	pE := mk("E #alpha #beta #gamma", now-20)
 
 	type listResp struct {
 		Items []struct {
@@ -1317,32 +1218,9 @@ func TestPostFilters(t *testing.T) {
 	if got := ids(list(fmt.Sprintf("/api/v1/posts?tags=alpha,beta&to=%d&limit=50", now-101))); !eq(got, pD) {
 		t.Fatalf("to filter = %v", got)
 	}
-	// 可见性（作者）
-	if got := ids(list("/api/v1/posts?tags=alpha&vis=private&limit=50")); !eq(got, pB) {
-		t.Fatalf("author private = %v", got)
-	}
-	if got := ids(list("/api/v1/posts?tags=beta&vis=private&limit=50")); !eq(got, pC) {
-		t.Fatalf("author private beta = %v, want [%s]", got, pC)
-	}
 	// 标签名容错：# 前缀、空格、重复
 	if got := ids(list("/api/v1/posts?tags=%23alpha,%20beta,alpha&limit=50")); !eq(got, pE, pA, pD) {
 		t.Fatalf("tag normalization = %v", got)
-	}
-
-	// 游客：私密过滤被忽略，只返回公开内容
-	code, body := ownerJSON(guest, "GET", base+"/api/v1/posts?vis=private&limit=50", nil)
-	if code != http.StatusOK {
-		t.Fatalf("guest filter: %d", code)
-	}
-	var guestList listResp
-	_ = json.Unmarshal(body, &guestList)
-	for _, id := range ids(guestList) {
-		if id == pB {
-			t.Fatal("guest must not see private post")
-		}
-	}
-	if got := ids(guestList); !eq(got, pE, pA, pD) { // private 不可见
-		t.Fatalf("guest visible = %v, want [%s %s %s]", got, pE, pA, pD)
 	}
 
 	// 组合 + 游标翻页（limit=2）：不重不漏
@@ -1359,8 +1237,7 @@ func TestPostFilters(t *testing.T) {
 	// 非法参数
 	for _, u := range []string{
 		"/api/v1/posts?from=abc", "/api/v1/posts?to=-1",
-		"/api/v1/posts?from=200&to=100", "/api/v1/posts?vis=secret",
-		"/api/v1/posts?vis=unlisted",
+		"/api/v1/posts?from=200&to=100",
 	} {
 		code, body := ownerJSON(owner, "GET", base+u, nil)
 		if code != http.StatusBadRequest {
@@ -1450,9 +1327,9 @@ func TestOverview(t *testing.T) {
 	}
 	attID := att["id"].(string)
 	for _, p := range []map[string]any{
-		{"content_md": "公开 #概览", "visibility": "public", "attachment_ids": []string{attID}},
-		{"content_md": "私密 A", "visibility": "private"},
-		{"content_md": "私密 B", "visibility": "private"},
+		{"content_md": "概览 A #概览", "attachment_ids": []string{attID}},
+		{"content_md": "概览 B"},
+		{"content_md": "概览 C"},
 	} {
 		if code, body := ownerJSON(owner, "POST", base+"/api/v1/posts", p); code != http.StatusCreated {
 			t.Fatalf("create: %d %s", code, body)
@@ -1461,10 +1338,8 @@ func TestOverview(t *testing.T) {
 
 	var got struct {
 		Posts struct {
-			Total   int64 `json:"total"`
-			Today   int64 `json:"today"`
-			Public  int64 `json:"public"`
-			Private int64 `json:"private"`
+			Total int64 `json:"total"`
+			Today int64 `json:"today"`
 		} `json:"posts"`
 		Attachments struct {
 			Count     int64            `json:"count"`
@@ -1482,7 +1357,7 @@ func TestOverview(t *testing.T) {
 		t.Fatalf("overview: %d %s", code, body)
 	}
 	_ = json.Unmarshal(body, &got)
-	if got.Posts.Total != 3 || got.Posts.Today != 3 || got.Posts.Public != 1 || got.Posts.Private != 2 {
+	if got.Posts.Total != 3 || got.Posts.Today != 3 {
 		t.Fatalf("posts = %+v", got.Posts)
 	}
 	if got.Attachments.Count != 1 || got.Attachments.Bytes <= 0 || got.Attachments.ByStorage["local"] != 1 {

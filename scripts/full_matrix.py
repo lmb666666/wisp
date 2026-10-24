@@ -157,16 +157,16 @@ code, _ = jreq("DELETE", "/api/v1/admin/media/" + att["id"], jar=owner)
 check("媒体库拒绝删除已绑定(409)", code == 409)
 code, _ = jreq("DELETE", "/api/v1/admin/media/" + attf["id"], jar=owner)
 check("媒体库删除无主(204)", code == 204)
-code, p2 = jreq("POST", "/api/v1/posts", {"content_md": "私密帖内容", "visibility": "private"}, jar=owner)
-check("私密帖创建", code == 201)
+code, p2 = jreq("POST", "/api/v1/posts", {"content_md": "时间线第二帖"}, jar=owner)
+check("第二帖创建", code == 201)
 code, p3 = jreq("POST", "/api/v1/posts", {"content_md": "补发的时间机器", "published_at": 1700000000}, jar=owner)
 check("补发历史时间", code == 201 and p3.get("published_at") == 1700000000)
 code, b = jreq("GET", "/api/v1/posts?limit=2", jar=owner)
-check("作者时间线(含私密)", code == 200 and len(b.get("items", [])) >= 2)
+check("时间线分页", code == 200 and len(b.get("items", [])) >= 2)
 code, b = jreq("GET", "/api/v1/posts?limit=50")
-check("游客时间线(仅公开)", code == 200 and all(i["visibility"] == "public" for i in b.get("items", [])))
-code, _ = jreq("GET", "/api/v1/posts/" + p2["id"])
-check("游客访问私密→404", code == 404)
+check("游客时间线", code == 200 and all(i["visibility"] == "public" for i in b.get("items", [])))
+code, _ = jreq("POST", "/api/v1/posts", {"content_md": "x", "visibility": "private"}, jar=owner)
+check("私密发布已移除→400", code == 400)
 code, b = jreq("PATCH", "/api/v1/posts/" + p1["id"], {"content_md": "编辑后 #新标签"}, jar=owner)
 check("编辑+重建标签", code == 200 and "新标签" in b.get("tags", []))
 code, _ = jreq("POST", "/api/v1/posts", {"content_md": "x"}, token="wpat_invalid")
@@ -177,7 +177,7 @@ code, tok = jreq("POST", "/api/v1/auth/tokens", {"name": "reader", "scopes": "re
 check("PAT 创建", code == 201 and tok.get("token", "").startswith("wpat_"))
 read_tok = tok["token"]
 code, b = jreq("GET", "/api/v1/posts?limit=50", token=read_tok)
-check("PAT read 可读私密", code == 200 and any("私密帖" in i["content_md"] for i in b.get("items", [])))
+check("PAT read 可读", code == 200 and any("时间线第二帖" in i["content_md"] for i in b.get("items", [])))
 code, _ = jreq("POST", "/api/v1/posts", {"content_md": "x"}, token=read_tok)
 check("PAT read 不可写→403", code == 403)
 code, tok2 = jreq("POST", "/api/v1/auth/tokens", {"name": "writer", "scopes": "write"}, jar=owner)
@@ -200,24 +200,6 @@ code, b = jreq("GET", "/api/v1/search?q=" + urllib.parse.quote("时间"))
 check("搜索 LIKE(2字)", code == 200 and len(b.get("items", [])) >= 1)
 code, b = jreq("GET", "/api/v1/search?q=" + urllib.parse.quote("不存在的词xyz"))
 check("搜索无结果", code == 200 and len(b.get("items", [])) == 0)
-
-# ===== 7. reactions =====
-PID = p1["id"]
-r = urllib.request.Request(BASE + f"/api/v1/posts/{PID}/reactions",
-                           data=json.dumps({"emoji": "🔥"}).encode(), method="POST",
-                           headers={"Content-Type": "application/json", "X-Client-ID": "matrix-client-001"})
-code = urllib.request.build_opener().open(r, timeout=15).status
-check("点赞 204", code == 204)
-# 幂等：重复点赞计数不变
-r2 = urllib.request.Request(BASE + f"/api/v1/posts/{PID}/reactions",
-                            data=json.dumps({"emoji": "🔥"}).encode(), method="POST",
-                            headers={"Content-Type": "application/json", "X-Client-ID": "matrix-client-001"})
-urllib.request.build_opener().open(r2, timeout=15)
-code, b = jreq("GET", "/api/v1/posts/" + PID)
-rx = [x for x in b.get("reactions", []) if x["emoji"] == "🔥"]
-check("reactions 聚合+幂等+mine=false", code == 200 and len(rx) == 1 and rx[0]["count"] == 1 and rx[0]["mine"] is False)
-code, _ = jreq("POST", f"/api/v1/posts/{PID}/reactions", {"emoji": "👍"})
-check("无 X-Client-ID→400", code == 400)
 
 # ===== 8. stats =====
 year = time.localtime().tm_year
@@ -290,13 +272,6 @@ check("非法 S3 配置→400", code == 400)
 code, b = jreq("PUT", "/api/v1/admin/settings/storage",
                {"backend": "local", "mirror_local": False, "s3": {}, "lsky": {}}, jar=owner)
 check("存储设置 PUT 回写", code == 200 and b.get("backend") == "local")
-
-# ===== 12. 通知设置（密钥脱敏）=====
-code, b = jreq("PUT", "/api/v1/admin/settings/notify",
-               {"ntfy_topic_url": "", "bark_url": "", "notify_on_reactions": True,
-                "smtp": {"smtp_host": "smtp.test", "smtp_port": 587, "smtp_user": "u",
-                         "smtp_pass": "secret123", "smtp_from": "a@b.c", "smtp_to": "d@e.f"}}, jar=owner)
-check("通知设置 PUT(密码脱敏)", code == 200 and b.get("smtp", {}).get("smtp_pass") == "***")
 
 # ===== 13. Webhook（本地接收器 + HMAC 校验）=====
 received = {}
@@ -379,7 +354,7 @@ check("静态 CSS", code == 200 and "text/css" in css_hdrs.get("Content-Type", "
 # ===== 17. RSS / OG =====
 code, b = jreq("GET", "/feed.xml")
 check("RSS", code == 200 and "<rss" in b and "webhook 触发帖" in b)
-code, b = jreq("GET", "/p/" + PID)
+code, b = jreq("GET", "/p/" + p1["id"])
 check("OG 注入", code == 200 and 'property="og:title"' in b)
 
 # ===== 18. CSRF / 删除 / 登出 =====
@@ -392,9 +367,9 @@ try:
 except urllib.error.HTTPError as e:
     code = e.code
 check("CSRF 跨站 Origin→403", code == 403)
-code, _ = jreq("DELETE", "/api/v1/posts/" + PID, jar=owner)
+code, _ = jreq("DELETE", "/api/v1/posts/" + p1["id"], jar=owner)
 check("删除 204", code == 204)
-code, _ = jreq("GET", "/api/v1/posts/" + PID, jar=owner)
+code, _ = jreq("GET", "/api/v1/posts/" + p1["id"], jar=owner)
 check("删后 404", code == 404)
 code, _ = jreq("POST", "/api/v1/auth/logout", jar=owner)
 check("登出", code in (200, 204))

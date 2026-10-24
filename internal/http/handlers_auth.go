@@ -17,7 +17,7 @@ var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{2,32}$`)
 func (s *Server) authStatus(c echo.Context) error {
 	n, err := s.q.CountUsers(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	resp := map[string]any{"initialized": n > 0}
 	// 用户名不向未鉴权访客暴露（防枚举）；登录后的 /auth/me 已提供
@@ -49,14 +49,14 @@ func (s *Server) authInit(c echo.Context) error {
 	}
 	n, err := s.q.CountUsers(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if n > 0 {
 		return apiError(c, http.StatusConflict, "conflict", auth.ErrAlreadyInitialized.Error())
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	now := time.Now().Unix()
 	user, err := s.q.CreateUser(c.Request().Context(), repo.CreateUserParams{
@@ -68,11 +68,11 @@ func (s *Server) authInit(c echo.Context) error {
 		UpdatedAt:    now,
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	plain, err := s.auth.Login(c.Request().Context(), user.Username, req.Password, c.Request().UserAgent())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	s.setSessionCookie(c, plain)
 	return c.JSON(http.StatusCreated, map[string]string{"username": user.Username})
@@ -137,7 +137,7 @@ func (s *Server) createToken(c echo.Context) error {
 	}
 	plain, row, err := s.auth.CreateToken(c.Request().Context(), req.Name, req.Scopes)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusCreated, map[string]any{
 		"id": row.ID, "name": row.Name, "scopes": row.Scopes, "token": plain,
@@ -147,7 +147,7 @@ func (s *Server) createToken(c echo.Context) error {
 func (s *Server) listTokens(c echo.Context) error {
 	rows, err := s.auth.ListTokens(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
@@ -162,7 +162,7 @@ func (s *Server) listTokens(c echo.Context) error {
 
 func (s *Server) deleteToken(c echo.Context) error {
 	if err := s.auth.DeleteToken(c.Request().Context(), c.Param("id")); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

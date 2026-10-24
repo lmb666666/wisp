@@ -84,14 +84,6 @@ type PostsFt struct {
 	ContentMd string
 }
 
-type Reaction struct {
-	ID        int64
-	PostID    string
-	ClientID  string
-	Emoji     string
-	CreatedAt int64
-}
-
 type Session struct {
 	ID        string
 	UserID    int64

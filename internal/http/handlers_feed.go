@@ -18,7 +18,7 @@ func (s *Server) handleFeed(c echo.Context) error {
 		Limit: 20,
 	})
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 
 	base := strings.TrimRight(s.cfg.PublicURL, "/")
@@ -35,7 +35,7 @@ func (s *Server) handleFeed(c echo.Context) error {
 				`<pubDate>%s</pubDate><description><![CDATA[%s]]></description></item>`,
 			xesc(service.Excerpt(it.ContentMD, 60)),
 			xesc(link), xesc(link),
-			time.Unix(it.PublishedAt, 0).Format(time.RFC822),
+			time.Unix(it.PublishedAt, 0).UTC().Format(time.RFC1123Z),
 			cdata(desc),
 		)
 	}

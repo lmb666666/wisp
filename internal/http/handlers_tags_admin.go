@@ -58,17 +58,17 @@ func (s *Server) renameTag(c echo.Context) error {
 		return apiError(c, http.StatusNotFound, "not_found", "标签不存在")
 	}
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	existing, err := s.q.GetTagByName(ctx, name)
 	switch {
 	case err == nil && existing.ID != tag.ID:
 		return apiError(c, http.StatusConflict, "tag_exists", "同名标签已存在，可将其合并")
 	case err != nil && !errors.Is(err, sql.ErrNoRows):
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if err := s.q.RenameTag(ctx, repo.RenameTagParams{Name: name, ID: id}); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"id": id, "name": name})
 }
@@ -114,7 +114,7 @@ func (s *Server) mergeTags(c echo.Context) error {
 	ctx := c.Request().Context()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	defer func() { _ = tx.Rollback() }()
 	q := repo.New(tx)
@@ -124,10 +124,10 @@ func (s *Server) mergeTags(c echo.Context) error {
 	case errors.Is(err, sql.ErrNoRows):
 		target, err = q.CreateTag(ctx, name)
 		if err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 	case err != nil:
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 
 	merged := 0
@@ -138,21 +138,21 @@ func (s *Server) mergeTags(c echo.Context) error {
 		if _, err := q.GetTag(ctx, id); errors.Is(err, sql.ErrNoRows) {
 			return apiError(c, http.StatusNotFound, "not_found", "源标签不存在")
 		} else if err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 		if err := q.MergeTagPosts(ctx, repo.MergeTagPostsParams{TargetID: target.ID, SourceID: id}); err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 		if err := q.DeleteTagLinks(ctx, id); err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 		if err := q.DeleteTag(ctx, id); err != nil {
-			return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+			return s.internalError(c, err)
 		}
 		merged++
 	}
 	if err := tx.Commit(); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"id": target.ID, "name": target.Name, "merged": merged,
@@ -169,13 +169,13 @@ func (s *Server) deleteTag(c echo.Context) error {
 	if _, err := s.q.GetTag(ctx, id); errors.Is(err, sql.ErrNoRows) {
 		return apiError(c, http.StatusNotFound, "not_found", "标签不存在")
 	} else if err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if err := s.q.DeleteTagLinks(ctx, id); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	if err := s.q.DeleteTag(ctx, id); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

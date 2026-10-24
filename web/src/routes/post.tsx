@@ -38,7 +38,7 @@ export function PostPage() {
   const { postId } = useParams({ from: "/p/$postId" })
   const { t } = useTranslation()
   const { data: me } = useMe()
-  const { data: post, isLoading, isError } = usePost(postId)
+  const { data: post, isLoading, isError, error } = usePost(postId)
   const navigate = useNavigate()
   const del = useDeletePost(postId)
   const [editing, setEditing] = useState(false)
@@ -49,7 +49,11 @@ export function PostPage() {
   if (isError || !post)
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center text-sm">
-        <p className="text-muted-foreground">{t("post.notFound")}</p>
+        <p className="text-muted-foreground">
+          {isError && (error as unknown as { statusCode?: number })?.statusCode === 404
+            ? t("post.notFound")
+            : t("common.loadFailed")}
+        </p>
         <Button asChild variant="outline" size="sm" className="rounded-lg">
           <Link to="/">{t("post.backTimeline")}</Link>
         </Button>
@@ -145,7 +149,6 @@ function EditPanel({
 }) {
   const { t } = useTranslation()
   const [md, setMd] = useState(post.content_md)
-  const [visibility, setVisibility] = useState(post.visibility)
   const [publishedAt, setPublishedAt] = useState(toLocalInput(post.published_at))
   const [editor, setEditor] = useState<Editor | null>(null)
   const [blocks, setBlocks] = useState<BlockInput[]>(
@@ -177,9 +180,10 @@ function EditPanel({
     update.mutate(
       {
         content_md: md,
-        visibility,
         blocks,
-        published_at: Math.floor(new Date(publishedAt).getTime() / 1000),
+        published_at: Number.isNaN(new Date(publishedAt).getTime())
+          ? undefined
+          : Math.floor(new Date(publishedAt).getTime() / 1000),
       },
       {
         onSuccess: () => {
@@ -243,28 +247,6 @@ function EditPanel({
         </div>
       )}
       <div className="border-border/70 flex flex-wrap items-center gap-2 border-t px-3 py-2">
-        <div className="bg-background/70 ring-border/60 flex rounded-[10px] p-0.5 ring-1">
-          {(
-            [
-              ["public", t("publish.visPublic")],
-              ["private", t("publish.visPrivate")],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setVisibility(v)}
-              className={
-                "rounded-lg px-2.5 py-1 text-xs transition-colors " +
-                (visibility === v
-                  ? "bg-card text-foreground font-medium shadow-xs"
-                  : "text-muted-foreground")
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         <input
           aria-label={t("post.publishedAt")}
           type="datetime-local"

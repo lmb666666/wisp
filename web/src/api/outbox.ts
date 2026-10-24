@@ -43,20 +43,31 @@ export const outbox = {
 
 let flushing = false
 
+export interface FlushResult {
+  sent: number
+  /** 队列里还有条目但被 401/403 挡住（会话过期）：等待重新登录，内容不丢。 */
+  needsAuth: boolean
+  /** 因请求本身错误（4xx，非鉴权）被丢弃的条数。 */
+  dropped: number
+}
+
 /**
  * 冲刷离线队列：联网恢复 / 定时 / 页面加载时调用。
- * 任何「有响应」的结果（含 4xx/5xx）都移除条目——只有纯网络错误才保留重试。
+ * 5xx/408/429 与网络错误保留重试；401/403 保留队列等待重新登录（内容不能丢）；
+ * 其余 4xx 请求本身有问题，丢弃。
  */
-export async function flushOutbox(): Promise<number> {
-  if (flushing) return 0
+export async function flushOutbox(): Promise<FlushResult> {
+  if (flushing) return { sent: 0, needsAuth: false, dropped: 0 }
   flushing = true
   let sent = 0
+  let dropped = 0
+  let needsAuth = false
   try {
     let items: OutboxItem[] = []
     try {
       items = await read()
     } catch {
-      return 0 // IndexedDB 不可用（隐私模式等）：静默跳过
+      return { sent: 0, needsAuth: false, dropped: 0 } // IndexedDB 不可用（隐私模式等）：静默跳过
     }
     for (const item of items) {
       try {
@@ -72,10 +83,15 @@ export async function flushOutbox(): Promise<number> {
           continue
         }
         const status = resp.status
+        if (status === 401 || status === 403) {
+          // 会话过期：内容保留，等重新登录后再冲刷
+          needsAuth = true
+          break
+        }
         const transient = status >= 500 || status === 408 || status === 429
         if (!transient) {
-          // 4xx：请求本身有问题，重试也没用
           await outbox.remove(item.key)
+          dropped++
           continue
         }
         break // 服务端暂时不可用：保留队列，稍后再试
@@ -87,5 +103,5 @@ export async function flushOutbox(): Promise<number> {
   } finally {
     flushing = false
   }
-  return sent
+  return { sent, needsAuth, dropped }
 }

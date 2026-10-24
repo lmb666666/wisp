@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from "@/components/ui/switch"
 
 interface WebhookRow {
   id: string
@@ -21,23 +20,29 @@ interface WebhookRow {
 
 const EVENTS = ["post.created", "post.updated", "post.deleted"] as const
 
-/** 设置 · 集成：Meting 音乐接口、Webhook、通知渠道。 */
+/** 设置 · 集成：Meting 音乐接口、Webhook。 */
 export function WebhooksPage() {
   return (
     <div className="space-y-4">
       <MetingCard />
       <WebhookCard />
-      <NotifyCard />
     </div>
   )
 }
 
 function MetingCard() {
   const { t } = useTranslation()
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ["meting"],
     queryFn: () => api<{ url: string }>("/admin/settings/meting"),
   })
+  if (isError) {
+    return (
+      <section className="wisp-card p-5">
+        <p className="text-muted-foreground text-sm">{t("common.loadFailed")}</p>
+      </section>
+    )
+  }
   if (!data) {
     return (
       <section className="wisp-card p-5">
@@ -208,85 +213,3 @@ function WebhookCard() {
   )
 }
 
-interface NotifySettings {
-  ntfy_topic_url: string
-  bark_url: string
-  notify_on_reactions: boolean
-}
-
-function NotifyCard() {
-  const { t } = useTranslation()
-  const { data } = useQuery({
-    queryKey: ["notify-settings"],
-    queryFn: () => api<NotifySettings>("/admin/settings/notify"),
-  })
-  if (!data) {
-    return (
-      <section className="wisp-card p-5">
-        <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
-      </section>
-    )
-  }
-  return <NotifyForm initial={data} />
-}
-
-function NotifyForm({ initial }: { initial: NotifySettings }) {
-  const { t } = useTranslation()
-  const [ntfy, setNtfy] = useState(initial.ntfy_topic_url ?? "")
-  const [bark, setBark] = useState(initial.bark_url ?? "")
-  const [onReactions, setOnReactions] = useState(initial.notify_on_reactions)
-  const [busy, setBusy] = useState(false)
-
-  const save = async () => {
-    setBusy(true)
-    try {
-      await api("/admin/settings/notify", {
-        method: "PUT",
-        body: { ntfy_topic_url: ntfy.trim(), bark_url: bark.trim(), notify_on_reactions: onReactions },
-      })
-      toast.success(t("settings.saved"))
-    } catch (err) {
-      toast.error(apiError(err).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <section className="wisp-card space-y-3 p-5">
-      <div>
-        <h2 className="wisp-section-title">{t("webhooks.notifyTitle")}</h2>
-        <p className="text-muted-foreground mt-1 text-xs">{t("webhooks.notifyHint")}</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="ntfy-url">{t("webhooks.ntfyUrl")}</Label>
-          <Input
-            id="ntfy-url"
-            value={ntfy}
-            onChange={(e) => setNtfy(e.target.value)}
-            placeholder={t("webhooks.ntfyPlaceholder")}
-            className="rounded-lg"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="bark-url">{t("webhooks.barkUrl")}</Label>
-          <Input
-            id="bark-url"
-            value={bark}
-            onChange={(e) => setBark(e.target.value)}
-            placeholder="https://api.day.app/your-key"
-            className="rounded-lg"
-          />
-        </div>
-      </div>
-      <label className="flex items-center gap-2 text-sm">
-        <Switch checked={onReactions} onCheckedChange={setOnReactions} />
-        {t("webhooks.notifyOnReactions")}
-      </label>
-      <Button size="sm" variant="outline" className="rounded-lg" onClick={save} disabled={busy}>
-        {t("webhooks.saveNotify")}
-      </Button>
-    </section>
-  )
-}

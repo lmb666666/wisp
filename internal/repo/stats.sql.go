@@ -21,72 +21,32 @@ func (q *Queries) CountTags(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const dailyCountsAuthor = `-- name: DailyCountsAuthor :many
+const dailyCounts = `-- name: DailyCounts :many
 SELECT date(published_at, 'unixepoch', 'localtime') AS day, count(*) AS count
 FROM posts
 WHERE published_at >= ? AND published_at < ?
 GROUP BY day
 `
 
-type DailyCountsAuthorParams struct {
+type DailyCountsParams struct {
 	PublishedAt   int64
 	PublishedAt_2 int64
 }
 
-type DailyCountsAuthorRow struct {
+type DailyCountsRow struct {
 	Day   interface{}
 	Count int64
 }
 
-func (q *Queries) DailyCountsAuthor(ctx context.Context, arg DailyCountsAuthorParams) ([]DailyCountsAuthorRow, error) {
-	rows, err := q.db.QueryContext(ctx, dailyCountsAuthor, arg.PublishedAt, arg.PublishedAt_2)
+func (q *Queries) DailyCounts(ctx context.Context, arg DailyCountsParams) ([]DailyCountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, dailyCounts, arg.PublishedAt, arg.PublishedAt_2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DailyCountsAuthorRow
+	var items []DailyCountsRow
 	for rows.Next() {
-		var i DailyCountsAuthorRow
-		if err := rows.Scan(&i.Day, &i.Count); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const dailyCountsPublic = `-- name: DailyCountsPublic :many
-SELECT date(published_at, 'unixepoch', 'localtime') AS day, count(*) AS count
-FROM posts
-WHERE published_at >= ? AND published_at < ? AND visibility = 'public'
-GROUP BY day
-`
-
-type DailyCountsPublicParams struct {
-	PublishedAt   int64
-	PublishedAt_2 int64
-}
-
-type DailyCountsPublicRow struct {
-	Day   interface{}
-	Count int64
-}
-
-func (q *Queries) DailyCountsPublic(ctx context.Context, arg DailyCountsPublicParams) ([]DailyCountsPublicRow, error) {
-	rows, err := q.db.QueryContext(ctx, dailyCountsPublic, arg.PublishedAt, arg.PublishedAt_2)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DailyCountsPublicRow
-	for rows.Next() {
-		var i DailyCountsPublicRow
+		var i DailyCountsRow
 		if err := rows.Scan(&i.Day, &i.Count); err != nil {
 			return nil, err
 		}
@@ -103,8 +63,6 @@ func (q *Queries) DailyCountsPublic(ctx context.Context, arg DailyCountsPublicPa
 
 const overviewPosts = `-- name: OverviewPosts :one
 SELECT count(*) AS total,
-       count(CASE WHEN visibility = 'public' THEN 1 END) AS public,
-       count(CASE WHEN visibility = 'private' THEN 1 END) AS private,
        count(CASE WHEN published_at >= ?1 AND published_at < ?2 THEN 1 END) AS today
 FROM posts
 `
@@ -115,20 +73,13 @@ type OverviewPostsParams struct {
 }
 
 type OverviewPostsRow struct {
-	Total   int64
-	Public  int64
-	Private int64
-	Today   int64
+	Total int64
+	Today int64
 }
 
 func (q *Queries) OverviewPosts(ctx context.Context, arg OverviewPostsParams) (OverviewPostsRow, error) {
 	row := q.db.QueryRowContext(ctx, overviewPosts, arg.TodayStart, arg.TodayEnd)
 	var i OverviewPostsRow
-	err := row.Scan(
-		&i.Total,
-		&i.Public,
-		&i.Private,
-		&i.Today,
-	)
+	err := row.Scan(&i.Total, &i.Today)
 	return i, err
 }

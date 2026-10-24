@@ -17,6 +17,7 @@ import (
 
 	"github.com/lmb666666/wisp/internal/media"
 	"github.com/lmb666666/wisp/internal/repo"
+	"github.com/lmb666666/wisp/internal/unfurl"
 )
 
 const (
@@ -26,8 +27,7 @@ const (
 
 // Options 导出选项。
 type Options struct {
-	IncludePrivate bool
-	SourceURL      string
+	SourceURL string
 }
 
 // Stats 导出统计。
@@ -43,7 +43,7 @@ type Manifest struct {
 	Version        int      `yaml:"version"`
 	ExportedAt     int64    `yaml:"exported_at"`
 	SourceURL      string   `yaml:"source_url,omitempty"`
-	IncludePrivate bool     `yaml:"include_private"`
+	IncludePrivate bool     `yaml:"include_private,omitempty"` // 历史包兼容；v0.3 起全部公开
 	Stats          Stats    `yaml:"stats"`
 	Warnings       []string `yaml:"warnings,omitempty"`
 }
@@ -94,7 +94,7 @@ func safeEntry(name string) bool {
 
 // Export 流式写出内容包 zip。
 func Export(ctx context.Context, q repo.Querier, store media.Storage, w io.Writer, opts Options) (Stats, error) {
-	posts, err := q.ListPostsForExport(ctx, boolToInt(opts.IncludePrivate))
+	posts, err := q.ListPostsForExport(ctx)
 	if err != nil {
 		return Stats{}, fmt.Errorf("list posts: %w", err)
 	}
@@ -102,7 +102,8 @@ func Export(ctx context.Context, q repo.Querier, store media.Storage, w io.Write
 	zw := zip.NewWriter(w)
 	stats := Stats{Posts: len(posts)}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// remote_url 可能来自导入的第三方包（不可信），必须走 SSRF 防护的客户端
+	client := unfurl.NewSafeClient(60 * time.Second)
 
 	for _, post := range posts {
 		tags, err := q.ListPostTags(ctx, post.ID)
@@ -147,8 +148,8 @@ func Export(ctx context.Context, q repo.Querier, store media.Storage, w io.Write
 
 	manifest, err := yaml.Marshal(Manifest{
 		Version: Version, ExportedAt: time.Now().Unix(),
-		SourceURL: opts.SourceURL, IncludePrivate: opts.IncludePrivate,
-		Stats: stats, Warnings: stats.Warnings,
+		SourceURL: opts.SourceURL,
+		Stats:     stats, Warnings: stats.Warnings,
 	})
 	if err != nil {
 		return stats, err
@@ -264,11 +265,4 @@ func writePost(zw *zip.Writer, post repo.Post, front FrontMatter) error {
 	}
 	_, err = io.WriteString(w, post.ContentMd)
 	return err
-}
-
-func boolToInt(v bool) int64 {
-	if v {
-		return 1
-	}
-	return 0
 }

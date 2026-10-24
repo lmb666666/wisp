@@ -42,6 +42,11 @@ export function useLogout() {
     onSuccess: () => {
       qc.clear() // 清掉私密时间线/详情等缓存，避免共享浏览器上登出后仍可见
       qc.setQueryData(["me"], null)
+      // Service Worker 的 "media" 运行时缓存（CacheFirst）存着私密图片 blob；
+      // 只删它，不动 workbox precache（删了会破坏离线壳）
+      if ("caches" in window) {
+        void caches.delete("media")
+      }
     },
   })
 }

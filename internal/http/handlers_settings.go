@@ -75,14 +75,14 @@ func (s *Server) putStorageSettings(c echo.Context) error {
 	if primary == nil {
 		primary = s.localStore
 	}
-	s.selector.Configure(primary, st.MirrorLocal)
-
+	// 先持久化再热切换：DB 写失败时不切换运行态，避免重启后配置漂移
 	blob, _ := json.Marshal(st)
 	if err := s.q.UpsertSetting(c.Request().Context(), repo.UpsertSettingParams{
 		Key: settingKeyStorage, Value: string(blob), UpdatedAt: time.Now().Unix(),
 	}); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
+	s.selector.Configure(primary, st.MirrorLocal)
 	return c.JSON(http.StatusOK, maskSecrets(st))
 }
 
@@ -113,7 +113,8 @@ const settingKeyMeting = "meting_api_url"
 // getMetingSettings GET /admin/settings/meting：返回当前生效地址（数据库优先，未设置时回退环境变量）。
 func (s *Server) getMetingSettings(c echo.Context) error {
 	url := s.cfg.MetingAPI
-	if val, err := s.q.GetSetting(c.Request().Context(), settingKeyMeting); err == nil {
+	if val, err := s.q.GetSetting(c.Request().Context(), settingKeyMeting); err == nil && val != "" {
+		// DB 值为空串视为「未设置」，仍回退 env（否则清空后无法回到环境变量配置）
 		url = val
 	}
 	return c.JSON(http.StatusOK, map[string]string{"url": url})
@@ -134,7 +135,7 @@ func (s *Server) putMetingSettings(c echo.Context) error {
 	if err := s.q.UpsertSetting(c.Request().Context(), repo.UpsertSettingParams{
 		Key: settingKeyMeting, Value: req.URL, UpdatedAt: time.Now().Unix(),
 	}); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+		return s.internalError(c, err)
 	}
 	s.posts.SetMetingAPI(req.URL)
 	return c.JSON(http.StatusOK, map[string]string{"url": req.URL})

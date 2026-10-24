@@ -40,6 +40,8 @@ export function BackupSection() {
     queryKey: ["backup-settings"],
     queryFn: () => api<BackupResp>("/admin/settings/backup"),
   })
+  if (q.isError)
+    return <p className="text-muted-foreground py-6 text-sm">{t("common.loadFailed")}</p>
   if (q.isLoading)
     return <p className="text-muted-foreground py-6 text-sm">{t("common.loading")}</p>
   if (!q.data) return null

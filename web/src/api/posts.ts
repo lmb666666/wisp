@@ -5,6 +5,16 @@ import { api, type Post, type PostFilters, type PostListResp } from "@/api/clien
 
 const PAGE_SIZE = 20
 
+/** 乐观占位的 HTML 预览：先转义再换行，绝不让原文进入 dangerouslySetInnerHTML。 */
+function optimisticHTML(md: string): string {
+  const esc = md
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+  return "<p>" + esc.replace(/\n/g, "<br/>") + "</p>"
+}
+
 /** 只把新帖插入未筛选的时间线缓存，避免它出现在不匹配的筛选结果里。 */
 function updateUnfilteredPostQueries(
   qc: ReturnType<typeof useQueryClient>,
@@ -21,9 +31,9 @@ function updateUnfilteredPostQueries(
 }
 
 export function usePosts(filters: PostFilters = {}) {
-  const { tag, from, to, vis, tags } = filters
+  const { tag, from, to, tags } = filters
   return useInfiniteQuery({
-    queryKey: ["posts", tag ?? "", from ?? 0, to ?? 0, vis ?? "", tags ?? ""],
+    queryKey: ["posts", tag ?? "", from ?? 0, to ?? 0, tags ?? ""],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       api<PostListResp>("/posts", {
@@ -33,7 +43,6 @@ export function usePosts(filters: PostFilters = {}) {
           tag: tag || undefined,
           from: from || undefined,
           to: to || undefined,
-          vis: vis || undefined,
           tags: tags || undefined,
         },
       }),
@@ -49,30 +58,6 @@ export function usePost(id: string) {
   })
 }
 
-export function useAddReaction(id: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (emoji: string) =>
-      api(`/posts/${id}/reactions`, { method: "POST", body: { emoji } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["post", id] })
-      qc.invalidateQueries({ queryKey: ["posts"] })
-    },
-  })
-}
-
-export function useRemoveReaction(id: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (emoji: string) =>
-      api(`/posts/${id}/reactions?emoji=${encodeURIComponent(emoji)}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["post", id] })
-      qc.invalidateQueries({ queryKey: ["posts"] })
-    },
-  })
-}
-
 export function useSearch(q: string) {
   return useQuery({
     queryKey: ["search", q],
@@ -83,7 +68,7 @@ export function useSearch(q: string) {
 
 export interface CreatePostInput {
   content_md: string
-  visibility: string
+  visibility?: string
   published_at?: number
   attachment_ids: string[]
   client?: string
@@ -117,14 +102,13 @@ export function useCreatePost() {
       const optimistic: Post = {
         id: `optimistic-${Date.now()}`,
         content_md: input.content_md,
-        content_html: "<p>" + input.content_md.replace(/\n/g, "<br/>") + "</p>",
+        content_html: optimisticHTML(input.content_md),
         visibility: (input.visibility as Post["visibility"]) ?? "public",
         location: input.location,
         published_at: input.published_at ?? Math.floor(Date.now() / 1000),
         source: "web",
         tags: [],
         attachments: [],
-        reactions: [],
         blocks: [],
       }
       updateUnfilteredPostQueries(qc, (data) => {
@@ -146,12 +130,14 @@ export function useCreatePost() {
       })
     },
     onSuccess: (real) => {
-      // 用服务端真实数据替换乐观占位（清掉占位、保留其余真实帖）
+      // 用服务端真实数据替换乐观占位（清掉占位、按 id 去重、保留其余真实帖）
       updateUnfilteredPostQueries(qc, (data) => {
         const pages = data.pages.map((p, i) => {
           if (i !== 0) return p
-          const withoutOptimistic = p.items.filter((x) => !x.id.startsWith("optimistic-"))
-          return { ...p, items: [real, ...withoutOptimistic] }
+          const rest = p.items.filter(
+            (x) => !x.id.startsWith("optimistic-") && x.id !== real.id,
+          )
+          return { ...p, items: [real, ...rest] }
         })
         return { ...data, pages }
       })

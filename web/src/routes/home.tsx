@@ -14,11 +14,11 @@ import { Input } from "@/components/ui/input"
 
 /** 时间线入口：有搜索词走结果页，否则时间线。 */
 export function Home() {
-  const { tag, q, from, to, vis, tags } = useSearch({ from: "/" })
+  const { tag, q, from, to, tags } = useSearch({ from: "/" })
   const { data: me } = useMe()
 
   if (q) return <SearchResults q={q} />
-  return <Timeline filters={{ tag, from, to, vis, tags }} authed={!!me} isOwner={!!me?.is_owner} />
+  return <Timeline filters={{ tag, from, to, tags }} authed={!!me} isOwner={!!me?.is_owner} />
 }
 
 /** 时间线：发布框（登录后）+ 无限滚动 + 按日分组 + 组合筛选。 */
@@ -117,7 +117,6 @@ const EMPTY_FILTERS: PostFilters = {
   tag: undefined,
   from: undefined,
   to: undefined,
-  vis: undefined,
   tags: undefined,
 }
 
@@ -146,7 +145,6 @@ function SearchBar({ filters, isOwner }: { filters: PostFilters; isOwner: boolea
         tag: next.tag,
         from: next.from,
         to: next.to,
-        vis: next.vis,
         tags: next.tags,
         q: next.q,
       },
@@ -213,7 +211,7 @@ function FilterChips({ filters }: { filters: PostFilters }) {
   const go = (next: PostFilters) =>
     navigate({
       to: "/",
-      search: { tag: next.tag, from: next.from, to: next.to, vis: next.vis, tags: next.tags },
+      search: { tag: next.tag, from: next.from, to: next.to, tags: next.tags },
     })
   const fmt = (ts: number) =>
     new Date(ts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -241,13 +239,6 @@ function FilterChips({ filters }: { filters: PostFilters }) {
           label={dateLabel}
           removeLabel={t("filter.remove", { label: dateLabel })}
           onRemove={() => go({ ...filters, from: undefined, to: undefined })}
-        />
-      )}
-      {filters.vis && (
-        <FilterChip
-          label={t(`filter.vis.${filters.vis}`)}
-          removeLabel={t("filter.remove", { label: t(`filter.vis.${filters.vis}`) })}
-          onRemove={() => go({ ...filters, vis: undefined })}
         />
       )}
       {tags.map((tag) => (

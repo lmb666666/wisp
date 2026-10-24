@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,13 +18,14 @@ const ctxPrincipal = "principal"
 
 // principal 统一身份：会话用户（hasWrite=true）或 PAT（按作用域）。
 type principal struct {
-	userID    int64
-	user      string // username
-	isOwner   bool
-	viaPAT    bool
-	viaCookie bool
-	tokenName string
-	hasWrite  bool
+	userID     int64
+	user       string // username
+	isOwner    bool
+	viaPAT     bool
+	viaCookie  bool
+	sessionRaw string // 会话 Cookie 原文（改密吊销其他会话时排除当前）
+	tokenName  string
+	hasWrite   bool
 }
 
 func (s *Server) current(c echo.Context) *principal {
@@ -37,6 +39,13 @@ func apiError(c echo.Context, status int, code, msg string) error {
 	})
 }
 
+// internalError 记录内部错误日志，对外只返回固定文案（不泄露 SQL/路径等细节）。
+func (s *Server) internalError(c echo.Context, err error) error {
+	slog.ErrorContext(c.Request().Context(), "internal error",
+		"method", c.Request().Method, "path", c.Path(), "err", err)
+	return apiError(c, http.StatusInternalServerError, "internal", "服务器内部错误")
+}
+
 // resolveAuth 尽力识别身份（不强制），供 GET 类接口区分作者视角。
 // 身份来源优先级：会话 Cookie → Bearer PAT。
 func (s *Server) resolveAuth(next echo.HandlerFunc) echo.HandlerFunc {
@@ -45,16 +54,17 @@ func (s *Server) resolveAuth(next echo.HandlerFunc) echo.HandlerFunc {
 			user, err := s.auth.UserBySession(c.Request().Context(), ck.Value)
 			if err == nil {
 				c.Set(ctxPrincipal, &principal{
-					userID:    user.ID,
-					user:      user.Username,
-					isOwner:   user.IsOwner == 1,
-					viaCookie: true,
-					hasWrite:  true,
+					userID:     user.ID,
+					user:       user.Username,
+					isOwner:    user.IsOwner == 1,
+					viaCookie:  true,
+					sessionRaw: ck.Value,
+					hasWrite:   true,
 				})
 				return next(c)
 			}
 			if !errors.Is(err, auth.ErrUnauthorized) {
-				return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+				return s.internalError(c, err)
 			}
 		}
 		if h := c.Request().Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
@@ -66,7 +76,7 @@ func (s *Server) resolveAuth(next echo.HandlerFunc) echo.HandlerFunc {
 				// 明确提供了凭证但无效：不能静默降级为游客
 				return apiError(c, http.StatusUnauthorized, "unauthorized", "令牌无效")
 			default:
-				return apiError(c, http.StatusInternalServerError, "internal", err.Error())
+				return s.internalError(c, err)
 			}
 		}
 		return next(c)
@@ -82,11 +92,14 @@ func (s *Server) requireUser(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		user, err := s.auth.UserBySession(c.Request().Context(), ck.Value)
 		if err != nil {
-			return apiError(c, http.StatusUnauthorized, "unauthorized", err.Error())
+			if errors.Is(err, auth.ErrUnauthorized) {
+				return apiError(c, http.StatusUnauthorized, "unauthorized", auth.ErrUnauthorized.Error())
+			}
+			return s.internalError(c, err) // DB 故障不是 401，别让前端误判会话过期
 		}
 		c.Set(ctxPrincipal, &principal{
 			userID: user.ID, user: user.Username,
-			isOwner: user.IsOwner == 1, viaCookie: true, hasWrite: true,
+			isOwner: user.IsOwner == 1, viaCookie: true, sessionRaw: ck.Value, hasWrite: true,
 		})
 		if err := s.ensureSameOrigin(c); err != nil {
 			return err
@@ -171,7 +184,7 @@ func (s *Server) setSessionCookie(c echo.Context, value string) {
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   strings.HasPrefix(s.cfg.PublicURL, "https"),
+		Secure:   strings.HasPrefix(strings.ToLower(s.cfg.PublicURL), "https"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int((30 * 24 * time.Hour).Seconds()),
 	})
@@ -180,7 +193,7 @@ func (s *Server) setSessionCookie(c echo.Context, value string) {
 func (s *Server) clearSessionCookie(c echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name: auth.SessionCookie, Value: "", Path: "/",
-		HttpOnly: true, Secure: strings.HasPrefix(s.cfg.PublicURL, "https"),
+		HttpOnly: true, Secure: strings.HasPrefix(strings.ToLower(s.cfg.PublicURL), "https"),
 		SameSite: http.SameSiteLaxMode, MaxAge: -1,
 	})
 }

@@ -44,11 +44,6 @@ function capturePoster(file: File): Promise<Blob | null> {
   })
 }
 
-const VISIBILITIES = [
-  { value: "public", key: "visPublic" },
-  { value: "private", key: "visPrivate" },
-] as const
-
 /** 发布框：常驻时间线顶部，3 秒发出。 */
 export function PublishBox({ initialShare }: { initialShare?: string }) {
   const [ready, setReady] = useState(false)
@@ -63,7 +58,20 @@ export function PublishBox({ initialShare }: { initialShare?: string }) {
   useEffect(() => {
     let cancelled = false
     const init: Promise<void> = initialShare
-      ? Promise.resolve()
+      ? loadDraft()
+          .catch(() => null) // IndexedDB 不可用时不影响发布
+          .then((d) => {
+            // 分享内容与旧草稿合并：旧草稿不能被静默覆盖丢失
+            if (d?.content || d?.attachments?.length || d?.blocks?.length) {
+              const merged = d.content ? `${initialShare}\n\n${d.content}` : initialShare
+              setSharedText(merged)
+              setDraft({
+                content: "",
+                attachments: d.attachments ?? [],
+                blocks: d.blocks ?? [],
+              })
+            }
+          })
       : loadDraft()
           .catch(() => null) // IndexedDB 不可用时不影响发布
           .then((d) => {
@@ -112,7 +120,6 @@ function PublishBoxInner({
   onPublished: () => void
 }) {
   const [markdown, setMarkdown] = useState(initial)
-  const [visibility, setVisibility] = useState<string>("public")
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments)
   const [blocks, setBlocks] = useState<BlockInput[]>(initialBlocks)
   const [blockKind, setBlockKind] = useState<BlockKind | null>(null)
@@ -219,7 +226,6 @@ function PublishBoxInner({
     const key = crypto.randomUUID()
     const input = {
       content_md: content,
-      visibility,
       attachment_ids: attachments.map((a) => a.id),
       blocks,
       client: "web",
@@ -238,12 +244,20 @@ function PublishBoxInner({
         onError: (err) => {
           const status = (err as { statusCode?: number }).statusCode
           if (!status) {
-            outbox.enqueue(key, input).then(() => toast.info(t("publish.offlineQueued")))
-            setMarkdown("")
-            setAttachments([])
-            setBlocks([])
-            clearDraft()
-            onPublished()
+            outbox
+              .enqueue(key, input)
+              .then(() => {
+                toast.info(t("publish.offlineQueued"))
+                setMarkdown("")
+                setAttachments([])
+                setBlocks([])
+                clearDraft()
+                onPublished()
+              })
+              .catch(() => {
+                // 队列写失败（隐私模式/存储满）：内容保留在编辑框，不静默丢失
+                toast.error("无法离线保存，内容已保留在编辑框，可稍后重试发布")
+              })
           } else {
             toast.error(apiError(err).message)
           }
@@ -384,23 +398,6 @@ function PublishBoxInner({
         />
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <div className="bg-background/70 ring-border/60 flex rounded-[10px] p-0.5 ring-1">
-            {VISIBILITIES.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => setVisibility(v.value)}
-                className={
-                  "rounded-md px-2 py-1 text-xs transition-colors " +
-                  (visibility === v.value
-                    ? "bg-background text-foreground font-medium shadow-sm"
-                    : "text-muted-foreground hover:text-foreground")
-                }
-              >
-                {t(`publish.${v.key}`)}
-              </button>
-            ))}
-          </div>
           {chars > 0 && (
             <span className="text-muted-foreground hidden text-[11px] tabular-nums sm:inline">
               {chars} {t("publish.chars")}

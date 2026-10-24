@@ -30,11 +30,44 @@ var md = goldmark.New(
 )
 
 // 纯标签行（整行仅由 #tag 组成）在正文中移除——标签已以 chips 形式单独展示。
-var tagOnlyLine = regexp.MustCompile(`(?m)^[ \t]*(?:#[^\s#]+[ \t]*)+$`)
+var tagOnlyLine = regexp.MustCompile(`^[ \t]*(?:#[^\s#]+[ \t]*)+$`)
+
+// stripTagOnlyLines 移除纯标签行，但跳过代码块：fenced（``` / ~~~）与缩进
+// （4 空格 / tab）内的 `#comment` 之类行是代码，不能删。
+func stripTagOnlyLines(source string) string {
+	lines := strings.Split(source, "\n")
+	var fence string // 当前围栏标记（"" = 不在围栏内）
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimLeft(line, " \t")
+		if fence != "" {
+			out = append(out, line)
+			if strings.HasPrefix(trimmed, fence) {
+				fence = ""
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			fence = trimmed[:3]
+			out = append(out, line)
+			continue
+		}
+		// 缩进代码块（4 空格或 tab 起）：整段保持原样
+		if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+			out = append(out, line)
+			continue
+		}
+		if tagOnlyLine.MatchString(line) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
 
 // RenderHTML 把 Markdown 渲染为 HTML（不启用 raw HTML，杜绝注入）。
 func RenderHTML(source string) (string, error) {
-	cleaned := tagOnlyLine.ReplaceAllString(source, "")
+	cleaned := stripTagOnlyLines(source)
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(cleaned), &buf); err != nil {
 		return "", fmt.Errorf("render markdown: %w", err)

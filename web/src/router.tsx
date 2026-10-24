@@ -57,12 +57,11 @@ const indexRoute = createRoute({
   component: Home,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tag?: string; q?: string; from?: number; to?: number; vis?: string; tags?: string } => ({
+  ): { tag?: string; q?: string; from?: number; to?: number; tags?: string } => ({
     tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
     q: typeof search.q === "string" && search.q ? search.q : undefined,
     from: Number(search.from) > 0 ? Number(search.from) : undefined,
     to: Number(search.to) > 0 ? Number(search.to) : undefined,
-    vis: ["public", "private"].includes(String(search.vis)) ? String(search.vis) : undefined,
     tags: typeof search.tags === "string" && search.tags ? search.tags : undefined,
   }),
 })

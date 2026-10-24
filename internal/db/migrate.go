@@ -104,5 +104,9 @@ func snapshot(database *sql.DB, dir string, version int64) error {
 	if _, err := database.ExecContext(context.Background(), "VACUUM INTO ?", dest); err != nil {
 		return fmt.Errorf("vacuum into %s: %w", dest, err)
 	}
+	// 快照内含密码哈希等敏感数据：与定时备份同样收紧到 0600
+	if err := os.Chmod(dest, 0o600); err != nil {
+		return fmt.Errorf("chmod snapshot: %w", err)
+	}
 	return nil
 }

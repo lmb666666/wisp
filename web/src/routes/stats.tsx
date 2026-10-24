@@ -96,7 +96,7 @@ export function StatsPage() {
 }
 
 interface OverviewResp {
-  posts: { total: number; today: number; public: number; private: number }
+  posts: { total: number; today: number }
   attachments: { count: number; bytes: number; by_storage: Record<string, number> }
   tags: number
   db_bytes: number
@@ -114,11 +114,12 @@ function fmtSize(n: number): string {
 
 function Overview() {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["overview"],
     queryFn: () => api<OverviewResp>("/admin/overview"),
   })
   if (isLoading) return <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
+  if (isError) return <p className="text-muted-foreground text-sm">{t("common.loadFailed")}</p>
   if (!data) return null
 
   const storage = Object.entries(data.attachments.by_storage)
@@ -139,10 +140,6 @@ function Overview() {
       icon: FileText,
       label: t("overview.posts"),
       value: String(data.posts.total),
-      hint: t("overview.postsHint", {
-        public: data.posts.public,
-        private: data.posts.private,
-      }),
     },
     {
       icon: CalendarDays,

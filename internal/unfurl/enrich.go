@@ -27,14 +27,17 @@ type PreviewStore interface {
 }
 
 // BareURLs 提取正文中的全部链接（含行内链接）用于预取，去重后最多 5 个。
+// 捕获自 HTML 属性，先 Unescape 还原真实 URL（`&amp;` → `&`），保证与
+// Enrich 查缓存用的 key 一致。
 func BareURLs(renderedHTML string) []string {
 	seen := map[string]bool{}
 	var urls []string
 	for _, re := range []*regexp.Regexp{bareLinked, barePlain, anyAnchor} {
 		for _, m := range re.FindAllStringSubmatch(renderedHTML, -1) {
-			if !seen[m[1]] && len(urls) < maxCards {
-				seen[m[1]] = true
-				urls = append(urls, m[1])
+			u := html.UnescapeString(m[1])
+			if !seen[u] && len(urls) < maxCards {
+				seen[u] = true
+				urls = append(urls, u)
 			}
 		}
 	}
@@ -92,9 +95,9 @@ func Enrich(ctx context.Context, store PreviewStore, renderedHTML string) string
 		return b.String(), true
 	}
 
-	// 1) 独占段落的链接原地成卡
+	// 1) 独占段落的链接原地成卡（捕获值是 HTML 转义形态，先还原）
 	out := bareLinked.ReplaceAllStringFunc(renderedHTML, func(match string) string {
-		u := bareLinked.FindStringSubmatch(match)[1]
+		u := html.UnescapeString(bareLinked.FindStringSubmatch(match)[1])
 		if card, ok := cardFor(u); ok {
 			rendered[u] = true
 			return card
@@ -102,7 +105,7 @@ func Enrich(ctx context.Context, store PreviewStore, renderedHTML string) string
 		return match
 	})
 	out = barePlain.ReplaceAllStringFunc(out, func(match string) string {
-		u := barePlain.FindStringSubmatch(match)[1]
+		u := html.UnescapeString(barePlain.FindStringSubmatch(match)[1])
 		if card, ok := cardFor(u); ok {
 			rendered[u] = true
 			return card
@@ -113,7 +116,7 @@ func Enrich(ctx context.Context, store PreviewStore, renderedHTML string) string
 	// 2) 正文内其他链接 → 文末追加卡片区
 	var extra []string
 	for _, m := range anyAnchor.FindAllStringSubmatch(out, -1) {
-		u := m[1]
+		u := html.UnescapeString(m[1])
 		if rendered[u] || len(extra) >= maxCards {
 			continue
 		}

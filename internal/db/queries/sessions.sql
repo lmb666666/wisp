@@ -11,5 +11,8 @@ LIMIT 1;
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
 
+-- name: DeleteSessionsByUserKeep :exec
+DELETE FROM sessions WHERE user_id = sqlc.arg(user_id) AND id != sqlc.arg(keep_id);
+
 -- name: DeleteExpiredSessions :exec
 DELETE FROM sessions WHERE expires_at < ?;

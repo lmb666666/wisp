@@ -2,100 +2,18 @@ import { Blurhash } from "react-blurhash"
 import { Link } from "@tanstack/react-router"
 import { MusicCard } from "@/components/music-card"
 import { ArrowUpRight, GitBranch, MapPin, Share2 } from "lucide-react"
-import { Suspense, lazy, useRef, useState } from "react"
+import { Suspense, lazy, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import type { Attachment, Post, PostBlock } from "@/api/client"
-import { useAddReaction, useRemoveReaction } from "@/api/posts"
 import { BlockShell } from "@/components/block-shell"
 import { LocationCard } from "@/components/location-card"
 import { VideoCard, WebsiteCard } from "@/components/link-blocks"
-import { Badge } from "@/components/ui/badge"
-import { useClickOutside } from "@/hooks/use-click-outside"
 import { sharePost } from "@/lib/share"
 import { cn } from "@/lib/utils"
 
 const Lightbox = lazy(() => import("yet-another-react-lightbox"))
-
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"]
-
-/** 点赞栏：已有 reactions + 展开快捷表情。 */
-function ReactionBar({ post }: { post: Post }) {
-  const { t } = useTranslation()
-  const add = useAddReaction(post.id)
-  const remove = useRemoveReaction(post.id)
-  const [open, setOpen] = useState(false)
-  const panelRef = useRef<HTMLSpanElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  useClickOutside(panelRef, () => setOpen(false), open, triggerRef)
-
-  const toggle = (emoji: string, mine: boolean) => {
-    if (mine) remove.mutate(emoji)
-    else add.mutate(emoji)
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {post.reactions.map((r) => (
-        <button
-          key={r.emoji}
-          type="button"
-          onClick={() => toggle(r.emoji, r.mine)}
-          className={cn(
-            "rounded-full border px-2.5 py-1 text-xs transition-colors",
-            r.mine
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-transparent bg-card shadow-xs hover:bg-accent",
-          )}
-        >
-          {r.emoji} {r.count}
-        </button>
-      ))}
-      <span ref={panelRef} className="relative inline-flex items-center">
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-label={t("card.addReaction")}
-          title={t("card.addReaction")}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="border-border text-muted-foreground hover:bg-accent hover:text-foreground rounded-full border border-dashed px-2 py-0.5 text-xs transition-colors"
-        >
-          ＋
-        </button>
-        {open && (
-          <span
-            role="menu"
-            className="wisp-pop border-border bg-popover absolute bottom-full left-0 z-20 mb-1.5 flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 shadow-sm"
-          >
-            {QUICK_EMOJIS.map((emoji) => {
-              const mine = post.reactions.find((r) => r.emoji === emoji)?.mine
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "rounded px-0.5 text-base transition-transform hover:scale-125",
-                    mine && "bg-primary/15",
-                  )}
-                  onClick={() => {
-                    toggle(emoji, !!mine)
-                    if (!mine) setOpen(false)
-                  }}
-                >
-                  {emoji}
-                </button>
-              )
-            })}
-          </span>
-        )}
-      </span>
-    </div>
-  )
-}
 
 /** 点击 embed 卡片才加载 iframe（隐私优先；RSS/OG 始终是外链卡）。 */
 function handleContentClick(e: React.MouseEvent) {
@@ -188,9 +106,6 @@ export function PostCard({
             </time>
           )}
           {post.edited_at ? <span>{t("card.edited")}</span> : null}
-          {post.visibility !== "public" && (
-            <Badge variant="outline">{t(`card.vis_${post.visibility}`)}</Badge>
-          )}
         </div>
 
         {optimistic ? (
@@ -232,25 +147,22 @@ export function PostCard({
         )}
       </div>
 
-      <div className="bg-muted/40 border-border/60 mt-1 flex items-center gap-2 border-t px-3 py-1.5">
-        <ReactionBar post={post} />
-        {!optimistic && (
-          <div className="ml-auto flex items-center gap-0.5">
-            <ShareButton post={post} />
-            {variant === "timeline" && (
-              <Link
-                to="/p/$postId"
-                params={{ postId: post.id }}
-                aria-label={t("card.jump")}
-                title={t("card.jump")}
-                className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full p-1.5 transition-colors"
-              >
-                <ArrowUpRight className="size-4" />
-              </Link>
-            )}
-          </div>
-        )}
-      </div>
+      {!optimistic && (
+        <div className="border-border/60 bg-muted/40 mt-1 flex items-center justify-end gap-0.5 border-t px-3 py-1.5">
+          <ShareButton post={post} />
+          {variant === "timeline" && (
+            <Link
+              to="/p/$postId"
+              params={{ postId: post.id }}
+              aria-label={t("card.jump")}
+              title={t("card.jump")}
+              className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full p-1.5 transition-colors"
+            >
+              <ArrowUpRight className="size-4" />
+            </Link>
+          )}
+        </div>
+      )}
     </article>
   )
 }

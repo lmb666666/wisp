@@ -3,17 +3,11 @@ package importer
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
 
 func bytesReader(b []byte) *bytes.Reader { return bytes.NewReader(b) }
-
-func readAll(r io.Reader) string {
-	b, _ := io.ReadAll(r)
-	return string(b)
-}
 
 func writeTemp(data []byte, pattern string) (string, error) {
 	tmp, err := os.CreateTemp("", pattern)

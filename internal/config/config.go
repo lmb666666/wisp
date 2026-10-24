@@ -16,10 +16,11 @@ type Config struct {
 	LogLevel      string        `env:"LOG_LEVEL" envDefault:"info"`
 	EnableSwagger bool          `env:"ENABLE_SWAGGER" envDefault:"false"`
 	PublicURL     string        `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
-	APIRateLimit  float64       `env:"API_RATE_LIMIT" envDefault:"20"` // 每秒请求数（按 IP）
-	CORSOrigins   []string      `env:"CORS_ORIGINS" envSeparator:","`  // 允许跨域访问 API 的来源（默认同源，无需配置）
-	MetingAPI     string        `env:"METING_API" envDefault:""`       // Meting 音乐解析端点（自托管，留空禁用音乐卡）
-	GeocodeURL    string        `env:"GEOCODE_URL" envDefault:""`      // Nominatim 兼容端点；留空禁用地点搜索/反查
+	APIRateLimit  float64       `env:"API_RATE_LIMIT" envDefault:"20"`   // 每秒请求数（按 IP）
+	CORSOrigins   []string      `env:"CORS_ORIGINS" envSeparator:","`    // 允许跨域访问 API 的来源（默认同源，无需配置）
+	MetingAPI     string        `env:"METING_API" envDefault:""`         // Meting 音乐解析端点（自托管，留空禁用音乐卡）
+	GeocodeURL    string        `env:"GEOCODE_URL" envDefault:""`        // Nominatim 兼容端点；留空禁用地点搜索/反查
+	TrustProxy    bool          `env:"TRUST_PROXIES" envDefault:"false"` // 置 true 时从 X-Forwarded-For 取客户端 IP（仅在可信反代后开启）
 	ReadTimeout   time.Duration `env:"READ_TIMEOUT" envDefault:"15s"`
 	WriteTimeout  time.Duration `env:"WRITE_TIMEOUT" envDefault:"5m"`
 }

@@ -10,7 +10,8 @@
     "more": "More",
     "cancel": "Cancel",
     "done": "Done",
-    "remove": "Remove"
+    "remove": "Remove",
+    "loadFailed": "Couldn't load, please retry."
   },
   "nav": {
     "stats": "Stats",
@@ -49,14 +50,11 @@
     "noMatch": "No matching posts.",
     "fromShare": "Shared from your device",
     "emptyHint": "Markdown, images and link cards supported.",
-    "loadFailed": "Couldn't load posts.",
+    "loadFailed": "Couldn't load, please retry.",
     "retry": "Retry"
   },
   "publish": {
     "placeholder": "Write something…",
-    "visibility": "Visibility",
-    "visPublic": "Public",
-    "visPrivate": "Private",
     "uploading": "Uploading",
     "submit": "Post",
     "offlineQueued": "Saved offline. Sends when you're back online.",
@@ -90,9 +88,6 @@
   "card": {
     "edited": "edited",
     "detail": "Detail",
-    "addReaction": "Add reaction",
-    "vis_private": "Private",
-    "vis_public": "Public",
     "jump": "Open",
     "imageOnly": "(image)",
     "share": "Share",
@@ -143,13 +138,6 @@
     "create": "Create",
     "creating": "Creating…",
     "secretOnce": "Signing secret (shown once — save it now):",
-    "notifyTitle": "Notifications",
-    "notifyHint": "Notify you when someone reacts. Leave empty to disable.",
-    "ntfyUrl": "ntfy topic URL",
-    "ntfyPlaceholder": "https://ntfy.sh/wisp-your-private-topic",
-    "barkUrl": "Bark URL",
-    "notifyOnReactions": "Push on reactions",
-    "saveNotify": "Save notification settings",
     "saved": "Saved"
   },
   "storage": {
@@ -185,7 +173,9 @@
     "limits": "Memos and Moments exports don't include media — migrate files separately. Ech0 capsules include images.",
     "memosHint": "Official JSON export (Settings → Export, or via API)",
     "momentsHint": "moments' db.sqlite (inside the container: /app/data/db.sqlite)",
-    "ech0Hint": "zip from `ech0 export capsule` (text content)"
+    "ech0Hint": "zip from `ech0 export capsule` (text content)",
+    "chooseFile": "Choose file",
+    "noFile": "No file chosen"
   },
   "stats": {
     "tabStats": "Stats",
@@ -287,7 +277,6 @@
     "importTitle": "Import old data",
     "capsuleTitle": "Portable capsule",
     "capsuleHint": "Markdown + original media + extension cards in one zip. Import into any Wisp instance or keep as an archive.",
-    "includePrivate": "Include private posts",
     "capsuleButton": "Export capsule",
     "backupScheduleHint": "Create consistent database snapshots automatically. Media files aren't included; failures are logged only.",
     "backupEnabled": "Enable automatic backups",
@@ -387,12 +376,6 @@
     "from": "From",
     "to": "To",
     "invalidRange": "Start date can't be after end date.",
-    "visibility": "Visibility",
-    "visAll": "All",
-    "vis": {
-      "public": "Public",
-      "private": "Private"
-    },
     "tags": "Tags",
     "tagSearch": "Search tags",
     "tagSelected": "{{count}} selected",
@@ -410,7 +393,6 @@
     "today": "Today",
     "media": "Media",
     "tagCount": "Tags",
-    "postsHint": "Public {{public}} · Private {{private}}",
     "todayHint": "Published today",
     "mediaHint": "{{count}} files · {{storage}}",
     "tagsHint": "Database {{size}}",

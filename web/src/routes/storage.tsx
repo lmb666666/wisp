@@ -27,11 +27,12 @@ interface StorageSettings {
 /** 设置 · 存储：local / S3 兼容 / Lsky Pro 图床，含连通性测试与本地镜像开关。 */
 export function StoragePage() {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["storage-settings"],
     queryFn: () => api<StorageSettings>("/admin/settings/storage"),
   })
 
+  if (isError) return <p className="text-muted-foreground py-6 text-sm">{t("common.loadFailed")}</p>
   if (isLoading || !data) return <p className="text-muted-foreground py-6 text-sm">{t("common.loading")}</p>
   return <StorageForm initial={data} />
 }

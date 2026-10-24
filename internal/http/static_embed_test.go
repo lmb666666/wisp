@@ -31,7 +31,7 @@ func TestStaticAssetsFromRealEmbed(t *testing.T) {
 	}
 
 	q := repo.New(database)
-	postSvc := service.NewPostService(q, "http://test.local", "")
+	postSvc := service.NewPostService(database, q, "http://test.local", "")
 	hooks := webhook.NewDispatcher(q)
 
 	sub, err := fs.Sub(wisp.WebFS, "web/dist")
@@ -96,7 +96,7 @@ func TestRoutesComplete(t *testing.T) {
 	}
 	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 1000, EnableSwagger: true}
 	e, err := New(cfg, sub, Deps{DB: database, Querier: repo.New(database), Auth: auth.NewService(repo.New(database)),
-		Posts:    service.NewPostService(repo.New(database), "http://test.local", ""),
+		Posts:    service.NewPostService(database, repo.New(database), "http://test.local", ""),
 		Uploader: media.NewUploader(mustLocalStore(dir), repo.New(database)),
 		Storage:  media.NewSelector(mustLocalStore(dir)), Webhooks: webhook.NewDispatcher(repo.New(database))})
 	if err != nil {
@@ -118,7 +118,6 @@ func TestRoutesComplete(t *testing.T) {
 		{http.MethodGet, "/api/v1/posts"},
 		{http.MethodPost, "/api/v1/posts"},
 		{http.MethodGet, "/api/v1/posts/x"},
-		{http.MethodPost, "/api/v1/posts/x/reactions"},
 		{http.MethodGet, "/api/v1/search"},
 		{http.MethodGet, "/api/v1/tags"},
 		{http.MethodGet, "/api/v1/stats/daily"},
@@ -130,8 +129,6 @@ func TestRoutesComplete(t *testing.T) {
 		{http.MethodGet, "/api/v1/admin/settings/storage"},
 		{http.MethodPut, "/api/v1/admin/settings/storage"},
 		{http.MethodPost, "/api/v1/admin/settings/storage/test"},
-		{http.MethodGet, "/api/v1/admin/settings/notify"},
-		{http.MethodPut, "/api/v1/admin/settings/notify"},
 		{http.MethodGet, "/feed.xml"},
 		{http.MethodGet, "/swagger"},
 		{http.MethodGet, "/swagger/openapi.yaml"},

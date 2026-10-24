@@ -53,6 +53,9 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil {
 		return false, fmt.Errorf("parse version: %w", err)
 	}
+	if version != argon2.Version {
+		return false, fmt.Errorf("unsupported argon2 version %d", version)
+	}
 	var memory, time uint32
 	var threads uint8
 	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &time, &threads); err != nil {
