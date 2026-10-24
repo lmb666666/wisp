@@ -7,6 +7,7 @@
 - 升级全部 Go 与前端依赖：Echo 4.16.2、minio-go 7.4.1、goose 3.29、modernc SQLite 1.61、x/crypto 0.58、React 19.3.1、TanStack Query/Router、TipTap 3.32、zod 4.6.7、lucide-react 1.61 等
 - GitHub Actions 升至当前最新大版本：checkout v7、setup-go/setup-node v7、pnpm/action-setup v6、golangci-lint-action v9、goreleaser-action v7、Docker 系列 v4/v7
 - 移除误提交的手动探针脚本 `web/mtest2.mjs`
+- 精简公开文档：品牌资料（BRAND）与未使用的 Logo 源素材移出仓库；发布说明与 docs 索引删除；CAPSULE 并入 MIGRATION；架构要点并入 CONTRIBUTING
 
 ## [0.2.0] - 2026-10-17
 

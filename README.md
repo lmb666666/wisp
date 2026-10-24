@@ -149,7 +149,7 @@ wisp-cli -url https://wisp.example.com -token wpat_xxx list -n 5
 - **可携带归档**：设置 → 数据 → 导出内容包（Markdown + 原图 + 卡片）
 - **从旧应用迁移**：设置 → 数据 → 导入旧数据，支持 Memos、Moments、Ech0 与 Wisp capsule
 
-格式与限制见 [docs/CAPSULE.md](docs/CAPSULE.md)，迁移细节见 [docs/MIGRATION.md](docs/MIGRATION.md)。
+迁移来源、内容包格式与限制见 [docs/MIGRATION.md](docs/MIGRATION.md)。
 
 ## 技术栈
 
@@ -177,10 +177,7 @@ python3 scripts/full_matrix.py                         # 全功能验收矩阵
 |---|---|
 | [docs/DEPLOY.md](docs/DEPLOY.md) | 部署、反向代理、备份恢复、权限 |
 | [docs/API.md](docs/API.md) | REST API、PAT、分页与示例 |
-| [docs/CAPSULE.md](docs/CAPSULE.md) | 内容包格式与导入导出 |
-| [docs/MIGRATION.md](docs/MIGRATION.md) | 从 Memos / Moments / Ech0 / Wisp 迁移 |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 代码结构与关键设计 |
-| [docs/BRAND.md](docs/BRAND.md) | Logo、颜色与素材使用 |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | 从 Memos / Moments / Ech0 / Wisp 迁移；内容包格式与限制 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本记录 |
 
 ## 安全
