@@ -88,6 +88,9 @@ func (s *WebAuthnService) loadSession(id string) (webauthn.SessionData, error) {
 	if e == nil || e.data == nil {
 		return webauthn.SessionData{}, fmt.Errorf("仪式数据无效")
 	}
+	if e.exp.IsZero() || time.Now().After(e.exp) {
+		return webauthn.SessionData{}, fmt.Errorf("仪式已过期，请重新发起")
+	}
 	return *e.data, nil
 }
 

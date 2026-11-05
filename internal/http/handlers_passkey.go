@@ -81,6 +81,9 @@ func (s *Server) beginPasskeyLogin(c echo.Context) error {
 
 // finishPasskeyLogin POST /auth/passkey/login/finish?session=<id>：成功即种会话 Cookie。
 func (s *Server) finishPasskeyLogin(c echo.Context) error {
+	if s.passkeys == nil {
+		return apiError(c, http.StatusNotImplemented, "disabled", "Passkey 未启用（检查 WISP_PUBLIC_URL）")
+	}
 	r, err := bufferedBody(c)
 	if err != nil {
 		return apiError(c, http.StatusBadRequest, "bad_request", err.Error())
@@ -90,7 +93,10 @@ func (s *Server) finishPasskeyLogin(c echo.Context) error {
 		return apiError(c, http.StatusUnauthorized, "unauthorized", err.Error())
 	}
 	s.setSessionCookie(c, plain)
-	return c.JSON(http.StatusOK, map[string]string{"username": user.Username})
+	return c.JSON(http.StatusOK, s.meJSON(&principal{
+		userID: user.ID, user: user.Username, isOwner: user.IsOwner == 1,
+		viaCookie: true, hasWrite: true,
+	}))
 }
 
 // listPasskeys GET /auth/passkeys（当前会话用户的凭证列表）。

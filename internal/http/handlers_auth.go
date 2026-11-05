@@ -75,7 +75,10 @@ func (s *Server) authInit(c echo.Context) error {
 		return s.internalError(c, err)
 	}
 	s.setSessionCookie(c, plain)
-	return c.JSON(http.StatusCreated, map[string]string{"username": user.Username})
+	return c.JSON(http.StatusCreated, s.meJSON(&principal{
+		userID: user.ID, user: user.Username, isOwner: user.IsOwner == 1,
+		viaCookie: true, hasWrite: true,
+	}))
 }
 
 type loginReq struct {
@@ -93,7 +96,14 @@ func (s *Server) authLogin(c echo.Context) error {
 		return apiError(c, http.StatusUnauthorized, "invalid_credentials", err.Error())
 	}
 	s.setSessionCookie(c, plain)
-	return c.JSON(http.StatusOK, map[string]string{"username": req.Username})
+	owner, err := s.auth.Owner(c.Request().Context())
+	if err != nil {
+		return s.internalError(c, err)
+	}
+	return c.JSON(http.StatusOK, s.meJSON(&principal{
+		userID: owner.ID, user: owner.Username, isOwner: owner.IsOwner == 1,
+		viaCookie: true, hasWrite: true,
+	}))
 }
 
 func (s *Server) authLogout(c echo.Context) error {
@@ -104,18 +114,23 @@ func (s *Server) authLogout(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// meJSON 统一的当前身份响应；登录/首启/Passkey 登录与 /auth/me 必须保持一致。
+func (s *Server) meJSON(p *principal) map[string]any {
+	return map[string]any{
+		"username":   p.user,
+		"is_owner":   p.isOwner,
+		"via_pat":    p.viaPAT,
+		"token_name": p.tokenName,
+	}
+}
+
 // authMe 当前身份（会话或 PAT）。
 func (s *Server) authMe(c echo.Context) error {
 	p := s.current(c)
 	if p == nil {
 		return apiError(c, http.StatusUnauthorized, "unauthorized", "未登录")
 	}
-	return c.JSON(http.StatusOK, map[string]any{
-		"username":   p.user,
-		"is_owner":   p.isOwner,
-		"via_pat":    p.viaPAT,
-		"token_name": p.tokenName,
-	})
+	return c.JSON(http.StatusOK, s.meJSON(p))
 }
 
 type tokenReq struct {

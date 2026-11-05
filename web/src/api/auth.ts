@@ -17,12 +17,21 @@ export function useAuthStatus() {
   })
 }
 
+/** 登录/首启成功后同步 me 与 auth-status 缓存，避免 owner 权限 UI 延迟到刷新才出现。 */
+export function cacheAuthenticated(
+  qc: ReturnType<typeof useQueryClient>,
+  me: Me,
+) {
+  qc.setQueryData(["me"], me)
+  qc.setQueryData(["auth-status"], { initialized: true, username: me.username })
+}
+
 export function useLogin() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: { username: string; password: string }) =>
       api<Me>("/auth/login", { method: "POST", body: input }),
-    onSuccess: (me) => qc.setQueryData(["me"], me),
+    onSuccess: (me) => cacheAuthenticated(qc, me),
   })
 }
 
@@ -31,7 +40,7 @@ export function useInit() {
   return useMutation({
     mutationFn: (input: { username: string; password: string; display_name: string }) =>
       api<Me>("/auth/init", { method: "POST", body: input }),
-    onSuccess: (me) => qc.setQueryData(["me"], me),
+    onSuccess: (me) => cacheAuthenticated(qc, me),
   })
 }
 

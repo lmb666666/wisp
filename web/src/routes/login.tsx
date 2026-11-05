@@ -4,7 +4,15 @@ import { Fingerprint, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { apiError, passkeyBeginLogin, passkeyFinishLogin, useAuthStatus, useInit, useLogin } from "@/api/auth"
+import {
+  apiError,
+  cacheAuthenticated,
+  passkeyBeginLogin,
+  passkeyFinishLogin,
+  useAuthStatus,
+  useInit,
+  useLogin,
+} from "@/api/auth"
 import { AppLogo } from "@/components/app-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,7 +59,7 @@ function PasskeyButton() {
       const begin = await passkeyBeginLogin()
       const { credential } = await passkeyLogin(begin.session, begin.options)
       const me = await passkeyFinishLogin(begin.session, credential)
-      qc.setQueryData(["me"], me)
+      cacheAuthenticated(qc, me)
       navigate({ to: "/" })
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.passkeyFailed"))
