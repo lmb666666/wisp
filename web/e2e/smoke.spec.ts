@@ -87,9 +87,9 @@ test("发布 → 时间线 → 详情 → 编辑 → 删除 全链路", async ({
   await page.getByRole("button", { name: "发布" }).click()
   await expect(page.getByText(content).first()).toBeVisible({ timeout: 10_000 })
 
-  // 详情页（卡片正文即链接）
+  // 详情页（卡片正文可点击进入，但不再是嵌套的 <a>）
   const firstCard = page.locator("article").filter({ hasText: content }).first()
-  await firstCard.locator("a").filter({ hasText: content }).first().click()
+  await firstCard.getByText(content).first().click()
   await page.waitForURL((u) => u.pathname.startsWith("/p/"))
   await expect(page.getByText(content).first()).toBeVisible()
 
@@ -482,4 +482,23 @@ test("扩展卡片弹窗：占位文案与入口去重", async ({ page }) => {
   )
   await page.keyboard.press("Escape")
   await expect(dialog).toHaveCount(0)
+})
+
+test("导入页提供 Wisp 内容包入口", async ({ page }) => {
+  await ensureLogin(page)
+  await page.goto("/settings/data")
+  await expect(page.getByRole("button", { name: "Wisp", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Wisp", exact: true }).click()
+  await expect(page.getByText("导出文件（≤256MB）")).toBeVisible()
+})
+
+test("时间线卡片不存在嵌套链接", async ({ page }) => {
+  await ensureLogin(page)
+  const text = `嵌套链接检查 ${Date.now()} https://example.com`
+  const res = await page.request.post("/api/v1/posts", { data: { content_md: text } })
+  expect(res.status()).toBe(201)
+  await page.goto("/")
+  const article = page.locator("article").filter({ hasText: "嵌套链接检查" }).first()
+  await expect(article).toBeVisible()
+  await expect(article.locator("a a")).toHaveCount(0)
 })

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Wisp 全功能验收矩阵：覆盖全部端点与核心语义（57 项断言）。
+"""Wisp 全功能验收矩阵：覆盖全部端点与核心语义（72 项断言）。
 
 用法：
   1. 起一个全新实例（必须空库）：
      WISP_PORT=18200 WISP_PUBLIC_URL=http://localhost:18200 \
      WISP_DATA_DIR=/tmp/wisp-matrix WISP_API_RATE_LIMIT=1000 \
-     WISP_ENABLE_SWAGGER=true ./wisp
+     WISP_AUTH_RATE_LIMIT=1000 WISP_ENABLE_SWAGGER=true ./wisp
   2. python3 scripts/full_matrix.py
 
 退出码 0 = 全部通过。
