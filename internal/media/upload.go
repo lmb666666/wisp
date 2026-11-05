@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/buckket/go-blurhash"
@@ -37,6 +38,40 @@ var ErrTooLarge = errors.New("文件超过大小限制")
 type Uploader struct {
 	store Storage
 	q     repo.Querier
+
+	mu       sync.Mutex
+	shaLocks map[string]*shaLock
+}
+
+// shaLock 引用计数：等待同一 sha 的上传都离开后从 map 移除，避免长期增长。
+type shaLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
+func (u *Uploader) lockSHA(sum string) func() {
+	u.mu.Lock()
+	if u.shaLocks == nil {
+		u.shaLocks = map[string]*shaLock{}
+	}
+	lock := u.shaLocks[sum]
+	if lock == nil {
+		lock = &shaLock{}
+		u.shaLocks[sum] = lock
+	}
+	lock.refs++
+	u.mu.Unlock()
+
+	lock.mu.Lock()
+	return func() {
+		lock.mu.Unlock()
+		u.mu.Lock()
+		lock.refs--
+		if lock.refs == 0 {
+			delete(u.shaLocks, sum)
+		}
+		u.mu.Unlock()
+	}
 }
 
 func NewUploader(store Storage, q repo.Querier) *Uploader {
@@ -54,6 +89,31 @@ func kindOf(mime string) string {
 	default:
 		return "file"
 	}
+}
+
+// dangerousMime 会作为同源页面执行的类型；即使客户端声明/文件头命中，
+// 也一律降级为可下载的 octet-stream。
+func dangerousMime(mime string) bool {
+	mime = strings.ToLower(strings.TrimSpace(strings.SplitN(mime, ";", 2)[0]))
+	switch mime {
+	case "text/html", "application/xhtml+xml", "image/svg+xml",
+		"text/xml", "application/xml", "application/javascript", "text/javascript":
+		return true
+	default:
+		return false
+	}
+}
+
+// sanitizeUploadMime 保留可信的媒体声明，但不允许客户端把活动内容伪装成媒体。
+func sanitizeUploadMime(declared, detected string) string {
+	if dangerousMime(declared) || dangerousMime(detected) {
+		return "application/octet-stream"
+	}
+	declared = strings.TrimSpace(strings.SplitN(declared, ";", 2)[0])
+	if declared != "" && declared != "application/octet-stream" {
+		return declared
+	}
+	return detected
 }
 
 type derivedImage struct {
@@ -91,6 +151,10 @@ func (u *Uploader) uploadReader(ctx context.Context, filename string, size int64
 	}
 	sum := hex.EncodeToString(hasher.Sum(nil))
 
+	// 同一文件的并发上传串行化：避免两个请求同时通过“未找到”检查后各插一行。
+	unlock := u.lockSHA(sum)
+	defer unlock()
+
 	if existing, err := u.q.GetAttachmentBySHA256(ctx, sum); err == nil {
 		return &existing, nil // 秒传：仅复用未绑定帖子的附件
 	}
@@ -98,16 +162,14 @@ func (u *Uploader) uploadReader(ctx context.Context, filename string, size int64
 		return nil, fmt.Errorf("rewind upload: %w", err)
 	}
 
-	// 类型：优先客户端声明，探测兜底
-	mime := mimeHint
-	if mime == "" || mime == "application/octet-stream" {
-		head := make([]byte, 512)
-		n, _ := io.ReadFull(f, head)
-		mime = http.DetectContentType(head[:n])
-		if _, err := f.Seek(0, io.SeekStart); err != nil {
-			return nil, fmt.Errorf("rewind upload: %w", err)
-		}
+	// 类型：始终探测头部，拒绝把 HTML/SVG/脚本伪装成图片或视频。
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(f, head)
+	detected := http.DetectContentType(head[:n])
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("rewind upload: %w", err)
 	}
+	mime := sanitizeUploadMime(mimeHint, detected)
 	kind := kindOf(mime)
 	ext := normalizeExt(path.Ext(filename), mime)
 
@@ -132,27 +194,31 @@ func (u *Uploader) uploadReader(ctx context.Context, filename string, size int64
 		return nil, fmt.Errorf("store upload: %w", err)
 	}
 	thumbPath := ""
+	thumbRemoteURL := ""
 	if derived.thumb != nil {
 		thumbKey := key + ".thumb.jpg"
 		if err := u.store.Put(ctx, thumbKey, bytes.NewReader(derived.thumb), "image/jpeg"); err == nil {
 			thumbPath = thumbKey
+			thumbRemoteURL = u.remoteURL(thumbKey)
 		}
 	}
 
+	storageKind := u.storeKind()
 	row, err := u.q.CreateAttachment(ctx, repo.CreateAttachmentParams{
-		ID:         id,
-		Kind:       kind,
-		Mime:       mime,
-		Size:       size,
-		Width:      int64(derived.width),
-		Height:     int64(derived.height),
-		Blurhash:   derived.blurhash,
-		ThumbPath:  thumbPath,
-		Storage:    u.storeKind(),
-		StorageKey: key,
-		RemoteUrl:  u.remoteURL(key),
-		Sha256:     sum,
-		CreatedAt:  now.Unix(),
+		ID:             id,
+		Kind:           kind,
+		Mime:           mime,
+		Size:           size,
+		Width:          int64(derived.width),
+		Height:         int64(derived.height),
+		Blurhash:       derived.blurhash,
+		ThumbPath:      thumbPath,
+		Storage:        storageKind,
+		StorageKey:     key,
+		RemoteUrl:      u.remoteURL(key),
+		Sha256:         sum,
+		CreatedAt:      now.Unix(),
+		ThumbRemoteUrl: thumbRemoteURL,
 	})
 	if err != nil {
 		_ = u.store.Delete(ctx, key)
@@ -207,12 +273,22 @@ func deriveFrom(r io.ReadSeeker) (derivedImage, error) {
 func (u *Uploader) storeKind() string {
 	switch s := u.store.(type) {
 	case *Selector:
-		if _, ok := s.Primary().(*LocalStorage); ok {
+		switch s.Primary().(type) {
+		case *LocalStorage:
 			return "local"
+		case *S3Storage:
+			return "s3"
+		case *LskyStorage:
+			return "lsky"
+		default:
+			return "remote"
 		}
-		return "remote" // 具体类型由 remote_url 体现
 	case *LocalStorage:
 		return "local"
+	case *S3Storage:
+		return "s3"
+	case *LskyStorage:
+		return "lsky"
 	default:
 		return "remote"
 	}

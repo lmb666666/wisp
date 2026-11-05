@@ -54,8 +54,8 @@ func (s *Server) listMedia(c echo.Context) error {
 		if url == "" {
 			url = "/media/" + r.StorageKey
 		}
-		thumb := ""
-		if r.ThumbPath != "" {
+		thumb := r.ThumbRemoteUrl
+		if thumb == "" && r.ThumbPath != "" {
 			thumb = url
 			if r.RemoteUrl == "" {
 				thumb = "/media/" + r.ThumbPath

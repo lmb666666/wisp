@@ -18,21 +18,22 @@ type ApiToken struct {
 }
 
 type Attachment struct {
-	ID         string
-	PostID     sql.NullString
-	Kind       string
-	Mime       string
-	Size       int64
-	Width      int64
-	Height     int64
-	Blurhash   string
-	ThumbPath  string
-	PosterPath string
-	Storage    string
-	RemoteUrl  string
-	Sha256     string
-	CreatedAt  int64
-	StorageKey string
+	ID             string
+	PostID         sql.NullString
+	Kind           string
+	Mime           string
+	Size           int64
+	Width          int64
+	Height         int64
+	Blurhash       string
+	ThumbPath      string
+	PosterPath     string
+	Storage        string
+	RemoteUrl      string
+	Sha256         string
+	CreatedAt      int64
+	StorageKey     string
+	ThumbRemoteUrl string
 }
 
 type IdempotencyKey struct {

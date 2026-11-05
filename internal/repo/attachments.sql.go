@@ -58,26 +58,28 @@ func (q *Queries) CountOrphanMedia(ctx context.Context) (int64, error) {
 const createAttachment = `-- name: CreateAttachment :one
 INSERT INTO attachments (
     id, kind, mime, size, width, height, blurhash,
-    thumb_path, poster_path, storage, storage_key, remote_url, sha256, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key
+    thumb_path, poster_path, storage, storage_key, remote_url, sha256, created_at,
+    thumb_remote_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key, thumb_remote_url
 `
 
 type CreateAttachmentParams struct {
-	ID         string
-	Kind       string
-	Mime       string
-	Size       int64
-	Width      int64
-	Height     int64
-	Blurhash   string
-	ThumbPath  string
-	PosterPath string
-	Storage    string
-	StorageKey string
-	RemoteUrl  string
-	Sha256     string
-	CreatedAt  int64
+	ID             string
+	Kind           string
+	Mime           string
+	Size           int64
+	Width          int64
+	Height         int64
+	Blurhash       string
+	ThumbPath      string
+	PosterPath     string
+	Storage        string
+	StorageKey     string
+	RemoteUrl      string
+	Sha256         string
+	CreatedAt      int64
+	ThumbRemoteUrl string
 }
 
 func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (Attachment, error) {
@@ -96,6 +98,7 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 		arg.RemoteUrl,
 		arg.Sha256,
 		arg.CreatedAt,
+		arg.ThumbRemoteUrl,
 	)
 	var i Attachment
 	err := row.Scan(
@@ -114,6 +117,7 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 		&i.Sha256,
 		&i.CreatedAt,
 		&i.StorageKey,
+		&i.ThumbRemoteUrl,
 	)
 	return i, err
 }
@@ -128,7 +132,7 @@ func (q *Queries) DeleteAttachment(ctx context.Context, id string) error {
 }
 
 const getAttachment = `-- name: GetAttachment :one
-SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key FROM attachments WHERE id = ? LIMIT 1
+SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key, thumb_remote_url FROM attachments WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetAttachment(ctx context.Context, id string) (Attachment, error) {
@@ -150,12 +154,13 @@ func (q *Queries) GetAttachment(ctx context.Context, id string) (Attachment, err
 		&i.Sha256,
 		&i.CreatedAt,
 		&i.StorageKey,
+		&i.ThumbRemoteUrl,
 	)
 	return i, err
 }
 
 const getAttachmentBySHA256 = `-- name: GetAttachmentBySHA256 :one
-SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key FROM attachments WHERE sha256 = ? AND post_id IS NULL ORDER BY created_at DESC LIMIT 1
+SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key, thumb_remote_url FROM attachments WHERE sha256 = ? AND post_id IS NULL ORDER BY created_at DESC LIMIT 1
 `
 
 func (q *Queries) GetAttachmentBySHA256(ctx context.Context, sha256 string) (Attachment, error) {
@@ -177,13 +182,15 @@ func (q *Queries) GetAttachmentBySHA256(ctx context.Context, sha256 string) (Att
 		&i.Sha256,
 		&i.CreatedAt,
 		&i.StorageKey,
+		&i.ThumbRemoteUrl,
 	)
 	return i, err
 }
 
 const listMedia = `-- name: ListMedia :many
 SELECT a.id, a.kind, a.mime, a.size, a.width, a.height, a.thumb_path, a.storage_key,
-       a.storage, a.remote_url, a.post_id, a.created_at, p.content_md AS post_content
+       a.storage, a.remote_url, a.post_id, a.created_at, a.thumb_remote_url,
+       p.content_md AS post_content
 FROM attachments a
 LEFT JOIN posts p ON p.id = a.post_id
 WHERE (?1 = '' OR a.kind = ?1)
@@ -202,19 +209,20 @@ type ListMediaParams struct {
 }
 
 type ListMediaRow struct {
-	ID          string
-	Kind        string
-	Mime        string
-	Size        int64
-	Width       int64
-	Height      int64
-	ThumbPath   string
-	StorageKey  string
-	Storage     string
-	RemoteUrl   string
-	PostID      sql.NullString
-	CreatedAt   int64
-	PostContent sql.NullString
+	ID             string
+	Kind           string
+	Mime           string
+	Size           int64
+	Width          int64
+	Height         int64
+	ThumbPath      string
+	StorageKey     string
+	Storage        string
+	RemoteUrl      string
+	PostID         sql.NullString
+	CreatedAt      int64
+	ThumbRemoteUrl string
+	PostContent    sql.NullString
 }
 
 func (q *Queries) ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMediaRow, error) {
@@ -245,6 +253,7 @@ func (q *Queries) ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMed
 			&i.RemoteUrl,
 			&i.PostID,
 			&i.CreatedAt,
+			&i.ThumbRemoteUrl,
 			&i.PostContent,
 		); err != nil {
 			return nil, err
@@ -261,7 +270,7 @@ func (q *Queries) ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMed
 }
 
 const listPostAttachments = `-- name: ListPostAttachments :many
-SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key FROM attachments WHERE post_id = ? ORDER BY created_at ASC, id ASC
+SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key, thumb_remote_url FROM attachments WHERE post_id = ? ORDER BY created_at ASC, id ASC
 `
 
 func (q *Queries) ListPostAttachments(ctx context.Context, postID sql.NullString) ([]Attachment, error) {
@@ -289,6 +298,7 @@ func (q *Queries) ListPostAttachments(ctx context.Context, postID sql.NullString
 			&i.Sha256,
 			&i.CreatedAt,
 			&i.StorageKey,
+			&i.ThumbRemoteUrl,
 		); err != nil {
 			return nil, err
 		}

@@ -1,8 +1,9 @@
 -- name: CreateAttachment :one
 INSERT INTO attachments (
     id, kind, mime, size, width, height, blurhash,
-    thumb_path, poster_path, storage, storage_key, remote_url, sha256, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    thumb_path, poster_path, storage, storage_key, remote_url, sha256, created_at,
+    thumb_remote_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetAttachment :one
@@ -25,7 +26,8 @@ UPDATE attachments SET poster_path = ? WHERE id = ?;
 
 -- name: ListMedia :many
 SELECT a.id, a.kind, a.mime, a.size, a.width, a.height, a.thumb_path, a.storage_key,
-       a.storage, a.remote_url, a.post_id, a.created_at, p.content_md AS post_content
+       a.storage, a.remote_url, a.post_id, a.created_at, a.thumb_remote_url,
+       p.content_md AS post_content
 FROM attachments a
 LEFT JOIN posts p ON p.id = a.post_id
 WHERE (sqlc.arg('kind') = '' OR a.kind = sqlc.arg('kind'))
