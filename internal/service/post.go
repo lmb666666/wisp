@@ -19,6 +19,9 @@ import (
 
 var ErrNotFound = errors.New("资源不存在")
 
+// ErrIdempotencyReplay 表示同一幂等键已被并发请求消费；事务已回滚。
+var ErrIdempotencyReplay = errors.New("幂等键已被使用")
+
 // AttachmentDTO 附件的对外表示。
 type AttachmentDTO struct {
 	ID        string `json:"id"`
@@ -138,14 +141,16 @@ func (s *PostService) prefetchLinks(contentHTML string, extra []string) {
 }
 
 type CreateParams struct {
-	ContentMD     string
-	Location      string
-	PublishedAt   int64 // 0 = 现在（支持补发过去的时刻）
-	Source        string
-	Client        string
-	AttachmentIDs []string
-	Blocks        []PostBlock
-	Tags          []string // 显式标签（导入 frontmatter 用；正文 #tag 仍会解析）
+	ID             string // 可选：预分配帖子 ID（幂等重放时由调用方保证唯一）
+	ContentMD      string
+	Location       string
+	PublishedAt    int64 // 0 = 现在（支持补发过去的时刻）
+	Source         string
+	Client         string
+	AttachmentIDs  []string
+	Blocks         []PostBlock
+	Tags           []string // 显式标签（导入 frontmatter 用；正文 #tag 仍会解析）
+	IdempotencyKey string   // 非空时与建帖在同一事务内落键
 }
 
 // Create 发帖：渲染 HTML、提取标签、绑定附件。
@@ -204,9 +209,13 @@ func (s *PostService) createWithDeps(ctx context.Context, authorID int64, p Crea
 	now := time.Now().Unix()
 	blocksJSON, _ := json.Marshal(blocks)
 	post := repo.Post{}
+	postID := p.ID
+	if postID == "" {
+		postID = util.NewULID()
+	}
 	err := s.inTx(ctx, func(txq repo.Querier) error {
 		created, err := txq.CreatePost(ctx, repo.CreatePostParams{
-			ID:          util.NewULID(),
+			ID:          postID,
 			UserID:      authorID,
 			ContentMd:   p.ContentMD,
 			ContentHtml: html,
@@ -228,6 +237,17 @@ func (s *PostService) createWithDeps(ctx context.Context, authorID int64, p Crea
 		for _, attID := range attIDs {
 			if err := txq.AttachToPost(ctx, repo.AttachToPostParams{PostID: sql.NullString{String: post.ID, Valid: true}, ID: attID}); err != nil {
 				return fmt.Errorf("attach %s: %w", attID, err)
+			}
+		}
+		if p.IdempotencyKey != "" {
+			n, err := txq.InsertIdempotencyKeyIfAbsent(ctx, repo.InsertIdempotencyKeyIfAbsentParams{
+				Key: p.IdempotencyKey, PostID: post.ID, CreatedAt: now,
+			})
+			if err != nil {
+				return fmt.Errorf("insert idempotency key: %w", err)
+			}
+			if n == 0 {
+				return ErrIdempotencyReplay
 			}
 		}
 		return nil
@@ -612,14 +632,17 @@ func (s *PostService) attachmentDTO(a repo.Attachment) AttachmentDTO {
 }
 
 func (s *PostService) thumbURL(a repo.Attachment) string {
+	if a.ThumbRemoteUrl != "" {
+		return a.ThumbRemoteUrl
+	}
 	if a.ThumbPath == "" {
 		return ""
 	}
 	if a.RemoteUrl != "" {
 		if a.Storage == "s3" {
-			return a.RemoteUrl + ".thumb.jpg" // S3 缩略图键为原 key + .thumb.jpg
+			return a.RemoteUrl + ".thumb.jpg" // 旧数据兼容：S3 缩略图键为原 key + .thumb.jpg
 		}
-		return a.RemoteUrl // 图床场景缩略图策略由后缀约定
+		return a.RemoteUrl // 无缩略图 URL 时退回原图
 	}
 	return "/media/" + a.ThumbPath
 }

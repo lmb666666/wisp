@@ -29,18 +29,21 @@ func (q *Queries) GetIdempotentPostID(ctx context.Context, key string) (string, 
 	return post_id, err
 }
 
-const insertIdempotencyKey = `-- name: InsertIdempotencyKey :exec
+const insertIdempotencyKeyIfAbsent = `-- name: InsertIdempotencyKeyIfAbsent :execrows
 INSERT INTO idempotency_keys (key, post_id, created_at) VALUES (?, ?, ?)
 ON CONFLICT (key) DO NOTHING
 `
 
-type InsertIdempotencyKeyParams struct {
+type InsertIdempotencyKeyIfAbsentParams struct {
 	Key       string
 	PostID    string
 	CreatedAt int64
 }
 
-func (q *Queries) InsertIdempotencyKey(ctx context.Context, arg InsertIdempotencyKeyParams) error {
-	_, err := q.db.ExecContext(ctx, insertIdempotencyKey, arg.Key, arg.PostID, arg.CreatedAt)
-	return err
+func (q *Queries) InsertIdempotencyKeyIfAbsent(ctx context.Context, arg InsertIdempotencyKeyIfAbsentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertIdempotencyKeyIfAbsent, arg.Key, arg.PostID, arg.CreatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

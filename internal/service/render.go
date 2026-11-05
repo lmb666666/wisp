@@ -10,8 +10,10 @@ import (
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
 var md = goldmark.New(
@@ -79,11 +81,39 @@ func RenderHTML(source string) (string, error) {
 // 排除 `# 一级标题`（# 后有空格）、URL fragment（前导是 / 或字母）等场景。
 var tagPattern = regexp.MustCompile(`(?:^|\s)#([^\s#]{1,64})`)
 
+// tagSource 提取可参与标签识别的纯文本：跳过 fenced/indented code、
+// inline code 与 raw HTML，避免把 #include / #define 当成标签。
+func tagSource(source string) string {
+	src := []byte(source)
+	doc := md.Parser().Parse(text.NewReader(src))
+	var b strings.Builder
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch n.Kind() {
+		case ast.KindCodeBlock, ast.KindFencedCodeBlock, ast.KindCodeSpan,
+			ast.KindHTMLBlock, ast.KindRawHTML:
+			return ast.WalkSkipChildren, nil
+		}
+		switch n := n.(type) {
+		case *ast.Text:
+			b.Write(n.Value(src))
+			b.WriteByte('\n')
+		case *ast.String:
+			b.Write(n.Value)
+			b.WriteByte('\n')
+		}
+		return ast.WalkContinue, nil
+	})
+	return b.String()
+}
+
 // ExtractTags 提取去重后的标签（最多 8 个）。
 func ExtractTags(source string) []string {
 	seen := map[string]bool{}
 	var tags []string
-	for _, m := range tagPattern.FindAllStringSubmatch(source, -1) {
+	for _, m := range tagPattern.FindAllStringSubmatch(tagSource(source), -1) {
 		tag := strings.Trim(m[1], "，。,.:：!！?？()（）[]【】「」")
 		if tag == "" || seen[tag] {
 			continue

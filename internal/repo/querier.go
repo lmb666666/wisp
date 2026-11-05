@@ -53,7 +53,7 @@ type Querier interface {
 	GetUser(ctx context.Context, id int64) (User, error)
 	GetUserBySession(ctx context.Context, arg GetUserBySessionParams) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
-	InsertIdempotencyKey(ctx context.Context, arg InsertIdempotencyKeyParams) error
+	InsertIdempotencyKeyIfAbsent(ctx context.Context, arg InsertIdempotencyKeyIfAbsentParams) (int64, error)
 	LinkPostTag(ctx context.Context, arg LinkPostTagParams) error
 	ListAttachmentOnlyFingerprints(ctx context.Context) ([]ListAttachmentOnlyFingerprintsRow, error)
 	ListFilteredPosts(ctx context.Context, arg ListFilteredPostsParams) ([]Post, error)

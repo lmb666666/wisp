@@ -1,19 +1,17 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/lmb666666/wisp/internal/media"
-	"github.com/lmb666666/wisp/internal/repo"
 	"github.com/lmb666666/wisp/internal/service"
 )
 
@@ -81,17 +79,16 @@ func (s *Server) createPost(c echo.Context) error {
 		source = "api"
 	}
 
-	// 幂等：同一 key 已处理过则直接返回原帖
-	if key := c.Request().Header.Get("Idempotency-Key"); key != "" {
+	// 幂等：同一 key 已处理过则直接返回原帖；并发由 createWithDeps 的事务兜底。
+	key := c.Request().Header.Get("Idempotency-Key")
+	if key != "" {
 		if len(key) > 128 {
 			return apiError(c, http.StatusBadRequest, "bad_request", "Idempotency-Key 过长")
 		}
 		if postID, err := s.q.GetIdempotentPostID(c.Request().Context(), key); err == nil {
-			if dto, err := s.posts.Get(c.Request().Context(), postID); err == nil {
-				return c.JSON(http.StatusOK, dto)
-			}
-			// key 已消费但原帖已删除：不能静默新建第二帖
-			return apiError(c, http.StatusConflict, "conflict", "该幂等键对应的帖子已删除")
+			return s.idempotentResponse(c, postID)
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return s.internalError(c, err)
 		}
 	}
 
@@ -105,25 +102,38 @@ func (s *Server) createPost(c echo.Context) error {
 		return apiError(c, http.StatusBadRequest, "bad_request", "私密发布已移除，visibility 只能为 public")
 	}
 	dto, err := s.posts.Create(c.Request().Context(), authorID, service.CreateParams{
-		ContentMD:     req.ContentMD,
-		Location:      req.Location,
-		PublishedAt:   req.PublishedAt,
-		Source:        source,
-		Client:        req.Client,
-		AttachmentIDs: req.AttachmentIDs,
-		Blocks:        req.Blocks,
+		ContentMD:      req.ContentMD,
+		Location:       req.Location,
+		PublishedAt:    req.PublishedAt,
+		Source:         source,
+		Client:         req.Client,
+		AttachmentIDs:  req.AttachmentIDs,
+		Blocks:         req.Blocks,
+		IdempotencyKey: key,
 	})
+	if errors.Is(err, service.ErrIdempotencyReplay) {
+		postID, lookupErr := s.q.GetIdempotentPostID(c.Request().Context(), key)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			return apiError(c, http.StatusConflict, "conflict", "该幂等键对应的帖子已删除")
+		}
+		if lookupErr != nil {
+			return s.internalError(c, lookupErr)
+		}
+		return s.idempotentResponse(c, postID)
+	}
 	if err != nil {
 		return apiError(c, http.StatusBadRequest, "create_failed", err.Error())
 	}
-	if key := c.Request().Header.Get("Idempotency-Key"); key != "" {
-		if err := s.q.InsertIdempotencyKey(c.Request().Context(), repo.InsertIdempotencyKeyParams{
-			Key: key, PostID: dto.ID, CreatedAt: time.Now().Unix(),
-		}); err != nil {
-			slog.Warn("insert idempotency key failed", "key", key, "err", err)
-		}
-	}
 	return c.JSON(http.StatusCreated, dto)
+}
+
+// idempotentResponse 返回幂等键对应的原帖；原帖已删除时返回 409，不能静默新建。
+func (s *Server) idempotentResponse(c echo.Context, postID string) error {
+	dto, err := s.posts.Get(c.Request().Context(), postID)
+	if err != nil {
+		return apiError(c, http.StatusConflict, "conflict", "该幂等键对应的帖子已删除")
+	}
+	return c.JSON(http.StatusOK, dto)
 }
 
 func (s *Server) getPost(c echo.Context) error {
@@ -193,7 +203,7 @@ func (s *Server) listTags(c echo.Context) error {
 func (s *Server) uploadAttachment(c echo.Context) error {
 	fh, err := c.FormFile("file")
 	if err != nil {
-		return apiError(c, http.StatusBadRequest, "bad_request", "缺少 file 字段")
+		return formFileError(c, err)
 	}
 	att, err := s.uploader.Upload(c.Request().Context(), fh)
 	if errors.Is(err, media.ErrTooLarge) {
