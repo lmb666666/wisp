@@ -1,7 +1,7 @@
 -- name: DailyCounts :many
-SELECT date(published_at, 'unixepoch', 'localtime') AS day, count(*) AS count
+SELECT date(published_at, 'unixepoch', sqlc.arg('tz_modifier')) AS day, count(*) AS count
 FROM posts
-WHERE published_at >= ? AND published_at < ?
+WHERE published_at >= sqlc.arg('published_at') AND published_at < sqlc.arg('published_at_2')
 GROUP BY day;
 
 -- name: OverviewPosts :one

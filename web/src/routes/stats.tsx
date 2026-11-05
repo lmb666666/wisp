@@ -45,6 +45,9 @@ const LEVELS = [
   "bg-primary",
 ] as const
 
+/** 服务端按客户端时区聚合日数据，避免容器 UTC 与浏览器本地日期错位。 */
+const TZ_OFFSET = -new Date().getTimezoneOffset()
+
 function levelOf(n: number) {
   if (n <= 0) return 0
   if (n === 1) return 1
@@ -115,8 +118,8 @@ function fmtSize(n: number): string {
 function Overview() {
   const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["overview"],
-    queryFn: () => api<OverviewResp>("/admin/overview"),
+    queryKey: ["overview", TZ_OFFSET],
+    queryFn: () => api<OverviewResp>(`/admin/overview?tz_offset=${TZ_OFFSET}`),
   })
   if (isLoading) return <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
   if (isError) return <p className="text-muted-foreground text-sm">{t("common.loadFailed")}</p>
@@ -199,8 +202,8 @@ function Heatmap() {
   const { t } = useTranslation()
   const [year, setYear] = useState(new Date().getFullYear())
   const { data, isLoading } = useQuery({
-    queryKey: ["stats", year],
-    queryFn: () => api<DailyResp>(`/stats/daily?year=${year}`),
+    queryKey: ["stats", year, TZ_OFFSET],
+    queryFn: () => api<DailyResp>(`/stats/daily?year=${year}&tz_offset=${TZ_OFFSET}`),
   })
 
   const { weeks, months, total, activeDays, streak } = useMemo(() => {

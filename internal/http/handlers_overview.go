@@ -14,8 +14,10 @@ import (
 // overview GET /admin/overview：站点内容、媒体、备份与运行信息（owner）。
 func (s *Server) overview(c echo.Context) error {
 	ctx := c.Request().Context()
+	offset := parseTZOffset(c.QueryParam("tz_offset"))
+	todayStart, todayEnd := todayBounds(offset)
 	posts, err := s.q.OverviewPosts(ctx, repo.OverviewPostsParams{
-		TodayStart: startOfToday(), TodayEnd: endOfToday(),
+		TodayStart: todayStart, TodayEnd: todayEnd,
 	})
 	if err != nil {
 		return s.internalError(c, err)

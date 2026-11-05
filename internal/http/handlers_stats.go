@@ -15,18 +15,18 @@ type dailyRow struct {
 	Count int64  `json:"count"`
 }
 
-// statsDaily 每日发帖计数（热力图用）：?year=2026。
+// statsDaily 每日发帖计数（热力图用）：?year=2026&tz_offset=480。
 func (s *Server) statsDaily(c echo.Context) error {
 	year := time.Now().Year()
 	if y, err := strconv.Atoi(c.QueryParam("year")); err == nil && y >= 2000 && y <= 2100 {
 		year = y
 	}
-	start := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local).Unix()
-	end := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local).Unix()
+	offset := parseTZOffset(c.QueryParam("tz_offset"))
+	start, end := yearBounds(year, offset)
 
 	var items []dailyRow
 	rows, err := s.q.DailyCounts(c.Request().Context(), repo.DailyCountsParams{
-		PublishedAt: start, PublishedAt_2: end,
+		TzModifier: tzModifier(offset), PublishedAt: start, PublishedAt_2: end,
 	})
 	if err != nil {
 		return s.internalError(c, err)
@@ -34,7 +34,7 @@ func (s *Server) statsDaily(c echo.Context) error {
 	for _, r := range rows {
 		items = append(items, dailyRow{Day: asString(r.Day), Count: r.Count})
 	}
-	return c.JSON(http.StatusOK, map[string]any{"year": year, "items": items})
+	return c.JSON(http.StatusOK, map[string]any{"year": year, "tz_offset": offset, "items": items})
 }
 
 // asString：SQLite date() 经驱动返回 string，但 sqlc 推断为 any。

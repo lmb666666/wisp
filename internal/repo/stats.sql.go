@@ -22,13 +22,14 @@ func (q *Queries) CountTags(ctx context.Context) (int64, error) {
 }
 
 const dailyCounts = `-- name: DailyCounts :many
-SELECT date(published_at, 'unixepoch', 'localtime') AS day, count(*) AS count
+SELECT date(published_at, 'unixepoch', ?1) AS day, count(*) AS count
 FROM posts
-WHERE published_at >= ? AND published_at < ?
+WHERE published_at >= ?2 AND published_at < ?3
 GROUP BY day
 `
 
 type DailyCountsParams struct {
+	TzModifier    string
 	PublishedAt   int64
 	PublishedAt_2 int64
 }
@@ -39,7 +40,7 @@ type DailyCountsRow struct {
 }
 
 func (q *Queries) DailyCounts(ctx context.Context, arg DailyCountsParams) ([]DailyCountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, dailyCounts, arg.PublishedAt, arg.PublishedAt_2)
+	rows, err := q.db.QueryContext(ctx, dailyCounts, arg.TzModifier, arg.PublishedAt, arg.PublishedAt_2)
 	if err != nil {
 		return nil, err
 	}
