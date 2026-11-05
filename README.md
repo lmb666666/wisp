@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/lmb666666/wisp/actions/workflows/ci.yml"><img src="https://github.com/lmb666666/wisp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/status-v0.2.0-c96a35" alt="status">
+  <img src="https://img.shields.io/badge/status-v0.3.1-c96a35" alt="status">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
   <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
   <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19">
@@ -66,8 +66,13 @@ Wisp 是一款单作者、自托管的轻量「说说 / 朋友圈」。没有推
 git clone https://github.com/lmb666666/wisp.git
 cd wisp
 
+# 由宿主用户创建数据目录，避免 Docker 以 root 创建后容器写不进去
+mkdir -p data
+
 # 生产环境务必改成实际访问地址
-WISP_PUBLIC_URL=https://wisp.example.com docker compose up -d --build
+WISP_UID="$(id -u)" WISP_GID="$(id -g)" \
+WISP_PUBLIC_URL=https://wisp.example.com \
+docker compose up -d --build
 ```
 
 打开你设置的 `WISP_PUBLIC_URL`（本地为 `http://localhost:8080`），按首启向导创建站点所有者。数据会持久化在 `./data`。
@@ -80,7 +85,7 @@ WISP_PUBLIC_URL=https://wisp.example.com docker compose up -d --build
 从 [Releases](https://github.com/lmb666666/wisp/releases) 下载对应平台压缩包：
 
 ```bash
-tar -xzf wisp_0.2.0_linux_amd64.tar.gz
+tar -xzf wisp_0.3.1_linux_amd64.tar.gz
 WISP_PUBLIC_URL=https://wisp.example.com ./wisp
 ```
 
@@ -114,6 +119,9 @@ make dev          # 同时启动 Go API（:8080）与 Vite（:5173）
 | `WISP_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 | `WISP_ENABLE_SWAGGER` | `false` | 暴露 `/swagger` 与 `/swagger/openapi.yaml` |
 | `WISP_API_RATE_LIMIT` | `20` | API 限流（每秒 / IP） |
+| `WISP_AUTH_RATE_LIMIT` | `1` | 登录/首启限流（每秒 / IP；Argon2 内存开销高） |
+| `WISP_READ_TIMEOUT` | `10m` | 整个请求（含上传 body）的读取上限 |
+| `WISP_WRITE_TIMEOUT` | `5m` | 响应写入上限 |
 | `WISP_CORS_ORIGINS` | （空） | 允许跨域调用 API 的来源，逗号分隔 |
 | `WISP_TRUST_PROXIES` | `false` | 置 `true` 时从 `X-Forwarded-For` 取客户端 IP（限流用），仅在可信反向代理后开启 |
 | `WISP_METING_API` | （空） | Meting 音乐解析端点；留空时不提供播放器 |
@@ -171,6 +179,9 @@ pnpm --dir web lint
 pnpm --dir web exec playwright test                    # 需要先起一个已初始化的实例
 python3 scripts/full_matrix.py                         # 全功能验收矩阵
 ```
+
+> 本地跑 E2E / 矩阵时建议给测试实例设置 `WISP_AUTH_RATE_LIMIT=1000`，
+> 避免连续登录被默认的登录限流拦截。
 
 ## 文档
 

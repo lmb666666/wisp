@@ -5,7 +5,7 @@ package http
 const openAPISpec = `openapi: 3.0.3
 info:
   title: Wisp API
-  version: "0.2"
+  version: "0.3.1"
   description: |
     Wisp 自托管说说 API。认证方式二选一：
     1. 会话 Cookie（Web UI 使用，HttpOnly）；
@@ -116,7 +116,7 @@ paths:
   /posts:
     get:
       security: []
-      summary: 时间线（游客公开内容；PAT/会话含私密）
+      summary: 时间线（全部内容公开）
       parameters:
         - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 50 } }
         - { name: before, in: query, schema: { type: string, description: 复合游标 published_at.id } }
@@ -157,7 +157,7 @@ paths:
     get:
       security: []
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
-      responses: { "200": { description: OK }, "404": { description: 不存在或私密 } }
+      responses: { "200": { description: OK }, "404": { description: 不存在 } }
     patch:
       summary: 编辑（content_md 变更会重渲染并重建标签）
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
@@ -246,7 +246,9 @@ paths:
     get:
       security: []
       summary: 每日发帖计数（热力图）
-      parameters: [{ name: year, in: query, schema: { type: integer } }]
+      parameters:
+        - { name: year, in: query, schema: { type: integer } }
+        - { name: tz_offset, in: query, schema: { type: integer }, description: "UTC 偏移分钟数，如东八区 480" }
       responses: { "200": { description: OK } }
   /admin/overview:
     get:

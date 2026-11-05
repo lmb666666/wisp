@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.1] - 2026-11-05
+
+### 修复
+
+- **优雅退出**：只注册一个信号 channel，首次 SIGTERM/SIGINT 完成 Shutdown 与队列排空，第二次才强退（此前首次信号即 exit 1）
+- **大文件上传**：`WISP_READ_TIMEOUT` 默认 15s → 10m，覆盖上传 body；multipart 超时不再误报“缺少 file 字段”
+- **纯 HTTP 部署**：移除依赖 `crypto.randomUUID`（仅安全上下文可用）的访客 ID；幂等键增加 `getRandomValues` fallback，局域网 HTTP 可正常发帖
+- **并发幂等**：幂等键与建帖改为同一事务落库，60 路并发同 key 不再产生重复帖子
+- **并发秒传**：同一 sha256 的上传串行化检查与落库，避免同文件生成多条无主附件
+- **登录态**：登录/首启/Passkey 登录返回完整身份（含 `is_owner`），前端同步 `auth-status`，owner 概览/标签管理不再延迟到刷新
+- **Passkey**：仪式过期在读取时校验；未启用时 finish 返回 501 而不是 nil panic
+- **远程存储**：附件记录具体后端（s3/lsky），缩略图优先使用持久化的远端 URL；详情页 OG 不再拼接出 `https://站点/https://cdn...`
+- **Meting**：清空设置后立即回退 `WISP_METING_API`，重启后仍生效
+- **时区**：`/stats/daily` 与 `/admin/overview` 支持 `tz_offset`，容器 UTC 与浏览器本地日期不再错位
+- **安全**：数据目录 0700、数据库/WAL/SHM 0600；登录/首启独立限流；启动校验 `WISP_PUBLIC_URL`；备份错误不再回传内部路径
+- **上传类型**：始终探测文件头，HTML/SVG/脚本伪装成图片或视频时降级为 octet-stream 下载
+- **安全响应头**：补充 Referrer-Policy、Permissions-Policy、CSP 基础限制；HTTPS 部署自动带 HSTS
+- **就绪检查**：新增 `/readyz`（DB Ping），`/healthz` 保持纯存活检查
+- **Webhook**：Stop 后不再向关闭的 channel 发送；退避重试可被停止信号打断
+- **前端**：详情页编辑器与设置/统计路由按需加载，TipTap/ProseMirror 拆成多个懒加载 chunk，主 chunk 约 768KB→421KB；构建前清空 dist，PWA precache 从约 7.4MB 降到 1.4MB；修复 PostCard 嵌套 `<a>`；代码块中的 `#include` 不再成为标签；导入页支持 Wisp 内容包；补移动端安全区与 3 处 i18n 文案
+
+### 迁移
+
+- 新增迁移 00014：`attachments.thumb_remote_url`（远端缩略图绝对 URL，旧数据回退原逻辑）
+- 迁移 00014 为纯新增列，旧版本二进制可忽略；升级前仍建议备份 `data/`
+
 ## [0.3.0] - 2026-10-24
 
 ### 移除
@@ -104,4 +130,4 @@
 ### 安全与验证
 
 - argon2id、可吊销会话、PAT 作用域、CORS 白名单、SSRF 防护、上传限制、zip 解压上限
-- Go 测试、golangci-lint、Playwright E2E、76 项验收矩阵与 10k 帖压测
+- Go 测试、golangci-lint、Playwright E2E、72 项验收矩阵与 10k 帖压测

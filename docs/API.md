@@ -22,7 +22,7 @@ PAT 在「设置 → API 令牌」创建。管理端点（导入、备份、媒�
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/posts` | 时间线；`limit`、`before`、`tag`/`tags`、`from`/`to`、`vis` |
+| `GET` | `/posts` | 时间线；`limit`、`before`、`tag`/`tags`、`from`/`to` |
 | `POST` | `/posts` | 发帖（write）；支持 `Idempotency-Key` |
 | `GET` | `/posts/{id}` | 详情 |
 | `PATCH` | `/posts/{id}` | 编辑（write） |
@@ -33,7 +33,7 @@ PAT 在「设置 → API 令牌」创建。管理端点（导入、备份、媒�
 | `POST` | `/tags/merge` | 合并（会话） |
 | `DELETE` | `/tags/{id}` | 只解绑（会话） |
 | `POST` | `/attachments` | multipart `file` 上传（write） |
-| `GET` | `/stats/daily?year=` | 年度热力图 |
+| `GET` | `/stats/daily?year=&tz_offset=` | 年度热力图；`tz_offset` 为 UTC 偏移分钟（东八区 480） |
 | `GET` | `/feed.xml` | RSS 2.0；`?tag=` 可筛选 |
 | `GET` | `/admin/overview` | 站点概览（会话） |
 | `GET/PUT` | `/admin/settings/backup` | 自动备份设置（会话） |
