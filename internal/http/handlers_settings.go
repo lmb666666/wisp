@@ -137,6 +137,11 @@ func (s *Server) putMetingSettings(c echo.Context) error {
 	}); err != nil {
 		return s.internalError(c, err)
 	}
-	s.posts.SetMetingAPI(req.URL)
-	return c.JSON(http.StatusOK, map[string]string{"url": req.URL})
+	// 空串表示回到环境变量配置，而不是显式禁用音乐卡。
+	effective := req.URL
+	if effective == "" {
+		effective = s.cfg.MetingAPI
+	}
+	s.posts.SetMetingAPI(effective)
+	return c.JSON(http.StatusOK, map[string]string{"url": effective})
 }

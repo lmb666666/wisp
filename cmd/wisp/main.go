@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,8 +48,13 @@ func run() error {
 	}
 	slog.SetDefault(newLogger(cfg.LogLevel))
 
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return fmt.Errorf("create data dir: %w", err)
+	}
+	// 数据目录可能由旧版本或容器以 0755 创建；尽量收紧到仅当前用户可访问。
+	// 某些 NFS/ACL 挂载不允许 chmod，此时记录警告继续，避免因权限位启动失败。
+	if err := os.Chmod(cfg.DataDir, 0o700); err != nil {
+		slog.Warn("chmod data dir failed", "dir", cfg.DataDir, "err", err)
 	}
 	backupDir := filepath.Join(cfg.DataDir, "backups")
 
@@ -57,9 +63,16 @@ func run() error {
 		return err
 	}
 	defer func() { _ = database.Close() }()
+	if err := wispdb.HardenFiles(cfg.DBPath); err != nil {
+		slog.Warn("harden db files failed", "err", err)
+	}
 
 	if err := wispdb.Migrate(database, backupDir); err != nil {
 		return err
+	}
+	// 迁移会创建/改写 WAL、SHM，迁移完成后再统一收紧权限。
+	if err := wispdb.HardenFiles(cfg.DBPath); err != nil {
+		slog.Warn("harden db files after migrate failed", "err", err)
 	}
 	slog.Info("database ready", "path", cfg.DBPath)
 
@@ -80,8 +93,8 @@ func run() error {
 	}
 	selector := media.NewSelector(localStore)
 	uploader := media.NewUploader(selector, q)
-	// 数据库中的设置优先（即使是空串=显式关闭）；无记录时用环境变量
-	if val, err := q.GetSetting(context.Background(), "meting_api_url"); err == nil {
+	// 数据库中的设置优先；空串视为未设置，继续回退环境变量
+	if val, err := q.GetSetting(context.Background(), "meting_api_url"); err == nil && strings.TrimSpace(val) != "" {
 		postSvc.SetMetingAPI(val)
 	}
 	hooks := webhook.NewDispatcher(q)
@@ -142,21 +155,33 @@ func run() error {
 		return err
 	}
 
+	srv := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           e,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
 	// 优雅退出：第一个信号触发 Shutdown（上限 15s，慢连接不强拖）；
-	// 第二个信号立即强退——不再吞掉用户的「快退」意图
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	secondSig := make(chan os.Signal, 1)
-	signal.Notify(secondSig, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(secondSig)
+	// 第二个信号立即强退——不再吞掉用户的「快退」意图。
+	// 只注册一个信号 channel：多个 channel 会各自收到同一个信号，
+	// 导致首次 SIGTERM 被误当成第二次信号。
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		<-ctx.Done()
-		<-secondSig
+		<-sigCh
+		slog.Info("shutting down")
+		cancel()
+		<-sigCh
 		slog.Warn("forced exit on second signal")
 		os.Exit(1)
 	}()
 	backupSvc.Start(ctx)
 	defer func() {
-		stop()
 		backupSvc.Wait()
 		hooks.Stop() // 排空 webhook 队列再退，避免事件丢失
 		hooks.Wait()
@@ -165,17 +190,8 @@ func run() error {
 	defer cancelShutdown()
 	go func() {
 		<-ctx.Done()
-		slog.Info("shutting down")
-		_ = e.Shutdown(shutdownCtx)
+		_ = srv.Shutdown(shutdownCtx)
 	}()
-
-	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           e,
-		ReadTimeout:       cfg.ReadTimeout,
-		WriteTimeout:      cfg.WriteTimeout,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
 
 	addr := srv.Addr
 	// 先绑定再打日志：端口被占时不会先出现误导性的 "listening"

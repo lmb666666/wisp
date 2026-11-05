@@ -48,7 +48,7 @@ func (s *Server) runBackup(c echo.Context) error {
 	}
 	file, err := s.backup.Run(c.Request().Context())
 	if err != nil {
-		return apiError(c, http.StatusInternalServerError, "backup_failed", err.Error())
+		return s.internalError(c, err)
 	}
 	return c.JSON(http.StatusOK, file)
 }

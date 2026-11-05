@@ -3,7 +3,9 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
@@ -26,4 +28,15 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 	return sqldb, nil
+}
+
+// HardenFiles 把数据库及其 WAL/SHM 收紧到 0600（不存在则跳过）。
+// 数据库含密码/令牌哈希和存储密钥，不能随默认 umask 变成 0644。
+func HardenFiles(path string) error {
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(p, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("chmod %s: %w", p, err)
+		}
+	}
+	return nil
 }

@@ -30,7 +30,10 @@ const maxImportPosts = 5000
 func (s *Server) adminImport(c echo.Context) error {
 	source := c.FormValue("source")
 	fh, err := c.FormFile("file")
-	if err != nil || fh == nil {
+	if err != nil {
+		return formFileError(c, err)
+	}
+	if fh == nil {
 		return apiError(c, http.StatusBadRequest, "bad_request", "缺少 file 字段")
 	}
 	if fh.Size > maxImportFile {

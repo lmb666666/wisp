@@ -21,6 +21,7 @@ COPY --from=web /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags="-s -w -X github.com/lmb666666/wisp/internal/version.Version=${VERSION} -X github.com/lmb666666/wisp/internal/version.Commit=${COMMIT}" \
     -o /out/wisp ./cmd/wisp
+RUN mkdir -p /out/data && touch /out/data/.keep
 
 # ---- 目标平台运行镜像 ----
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -33,6 +34,8 @@ LABEL org.opencontainers.image.title="Wisp" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT}"
 COPY --from=build /out/wisp /wisp
+# 预创建 /data 并交给 nonroot；命名卷首次挂载会继承该目录权限，避免非 root 无法写库。
+COPY --from=build --chown=65532:65532 /out/data /data
 ENV WISP_DATA_DIR=/data \
     WISP_PORT=8080
 VOLUME /data

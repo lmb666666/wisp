@@ -44,7 +44,7 @@ func TestLoad10k(t *testing.T) {
 	postSvc := service.NewPostService(database, q, "http://test.local", "")
 	store, _ := media.NewLocalStorage(filepath.Join(dir, "media"))
 
-	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 100000}
+	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 100000, AuthRateLimit: 100000}
 	e, err := wisphttp.New(cfg, fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html><head><!--wisp:og--></head></html>")}},
 		wisphttp.Deps{DB: database, Querier: q, Auth: authSvc, Posts: postSvc,
 			Uploader: media.NewUploader(store, q), Storage: store})

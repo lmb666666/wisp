@@ -141,7 +141,7 @@ func (s *Service) Run(ctx context.Context) (File, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := os.MkdirAll(s.dir, 0o755); err != nil {
+	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return File{}, fmt.Errorf("create backup dir: %w", err)
 	}
 	now := s.Now()

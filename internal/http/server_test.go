@@ -63,10 +63,11 @@ func newTestServer(t *testing.T) (baseURL string, owner *http.Client, guest *htt
 	}}
 
 	cfg := config.Config{
-		DataDir:      dir,
-		DBPath:       filepath.Join(dir, "test.db"),
-		PublicURL:    "http://test.local",
-		APIRateLimit: 1000,
+		DataDir:       dir,
+		DBPath:        filepath.Join(dir, "test.db"),
+		PublicURL:     "http://test.local",
+		APIRateLimit:  1000,
+		AuthRateLimit: 1000,
 	}
 	e, err := New(cfg, webFS, Deps{
 		DB: database, Querier: q, Auth: authSvc, Posts: postSvc,

@@ -38,7 +38,7 @@ func TestStaticAssetsFromRealEmbed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 1000}
+	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 1000, AuthRateLimit: 1000}
 	e, err := New(cfg, sub, Deps{DB: database, Querier: q, Auth: auth.NewService(q), Posts: postSvc,
 		Uploader: media.NewUploader(mustLocalStore(dir), q),
 		Storage:  media.NewSelector(mustLocalStore(dir)),
@@ -94,7 +94,7 @@ func TestRoutesComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 1000, EnableSwagger: true}
+	cfg := config.Config{DataDir: dir, PublicURL: "http://test.local", APIRateLimit: 1000, AuthRateLimit: 1000, EnableSwagger: true}
 	e, err := New(cfg, sub, Deps{DB: database, Querier: repo.New(database), Auth: auth.NewService(repo.New(database)),
 		Posts:    service.NewPostService(database, repo.New(database), "http://test.local", ""),
 		Uploader: media.NewUploader(mustLocalStore(dir), repo.New(database)),
@@ -108,6 +108,7 @@ func TestRoutesComplete(t *testing.T) {
 	}
 	routes := []route{
 		{http.MethodGet, "/healthz"},
+		{http.MethodGet, "/readyz"},
 		{http.MethodGet, "/api/v1/ping"},
 		{http.MethodGet, "/api/v1/auth/status"},
 		{http.MethodPost, "/api/v1/auth/login"},

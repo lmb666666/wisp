@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -105,7 +106,12 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 		e.IPExtractor = echo.ExtractIPDirect()
 	}
 	e.Use(middleware.Recover())
-	e.Use(middleware.Secure())
+	secureCfg := middleware.SecureConfig{}
+	if strings.HasPrefix(strings.ToLower(cfg.PublicURL), "https://") {
+		secureCfg.HSTSMaxAge = 31536000
+	}
+	e.Use(middleware.SecureWithConfig(secureCfg))
+	e.Use(securityHeaders)
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{Skipper: func(c echo.Context) bool {
 		return strings.HasPrefix(c.Path(), "/api/")
 	}}))
@@ -113,6 +119,14 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	// ---- 公开端点 ----
 	e.GET("/healthz", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+	e.GET("/readyz", func(c echo.Context) error {
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+		defer cancel()
+		if s.db == nil || s.db.PingContext(ctx) != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ready"})
 	})
 
 	// 本地附件静态路由：始终挂在 LocalStore 上（生产 Storage 是可切换的 Selector）
@@ -159,9 +173,21 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	}
 
 	authGroup := api.Group("/auth")
+	// 登录/首启会执行 Argon2（64MiB），用独立的低速限流，避免未认证请求把内存打满。
+	authRate := cfg.AuthRateLimit
+	if authRate <= 0 {
+		authRate = 1
+	}
+	authLimiter := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      rate.Limit(authRate),
+			Burst:     3,
+			ExpiresIn: 3 * time.Minute,
+		}),
+	})
 	authGroup.GET("/status", s.authStatus, s.resolveAuth)
-	authGroup.POST("/init", s.authInit)
-	authGroup.POST("/login", s.authLogin)
+	authGroup.POST("/init", s.authInit, authLimiter)
+	authGroup.POST("/login", s.authLogin, authLimiter)
 	authGroup.POST("/logout", s.authLogout, s.requireUser)
 	authGroup.GET("/me", s.authMe, s.resolveAuth)
 	authGroup.GET("/profile", s.getProfile, s.requireUser)
@@ -242,6 +268,14 @@ func (s *Server) defaultOGImage() string {
 	)
 }
 
+// absoluteMediaURL 把本地 /media 路径补成绝对地址；远端存储返回的已是绝对 URL，不能重复拼接。
+func (s *Server) absoluteMediaURL(u string) string {
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	return strings.TrimRight(s.cfg.PublicURL, "/") + "/" + strings.TrimLeft(u, "/")
+}
+
 // postPage 详情页：服务端注入真实 OG meta（SSR-lite）。
 func (s *Server) postPage(c echo.Context) error {
 	id := c.Param("id")
@@ -258,9 +292,13 @@ func (s *Server) postPage(c echo.Context) error {
 		}
 		desc = service.Excerpt(dto.ContentMD, 160)
 		for _, a := range dto.Attachments {
-			if a.Kind == "image" && a.ThumbURL != "" {
+			imageURL := a.ThumbURL
+			if imageURL == "" {
+				imageURL = a.URL
+			}
+			if a.Kind == "image" && imageURL != "" {
 				extra += fmt.Sprintf(`<meta property="og:image" content="%s"/>`,
-					html.EscapeString(s.cfg.PublicURL+a.ThumbURL))
+					html.EscapeString(s.absoluteMediaURL(imageURL)))
 				break
 			}
 		}
@@ -294,6 +332,18 @@ func injectOG(page, title, desc, extra string) string {
 		return strings.Replace(page, ogMarker, meta, 1)
 	}
 	return strings.Replace(page, "</head>", meta+"</head>", 1)
+}
+
+// securityHeaders 补充 Echo Secure 默认头之外的浏览器侧限制。
+// 不锁定 script-src：index.html 有主题初始化内联脚本，且嵌入播放器需要单独放行。
+func securityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		h := c.Response().Header()
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
+		h.Set("Content-Security-Policy", "object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
+		return next(c)
+	}
 }
 
 // corsForAPI 面向第三方 Web 客户端的受限 CORS：仅 /api/v1、仅白名单来源、

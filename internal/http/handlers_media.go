@@ -29,7 +29,7 @@ func (s *Server) uploadPoster(c echo.Context) error {
 	}
 	fh, err := c.FormFile("file")
 	if err != nil {
-		return apiError(c, http.StatusBadRequest, "bad_request", "缺少 file 字段")
+		return formFileError(c, err)
 	}
 	if fh.Size > maxPosterSize {
 		return apiError(c, http.StatusRequestEntityTooLarge, "too_large", "封面超过 5MB")

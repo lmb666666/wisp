@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -29,9 +30,11 @@ var retryBackoff = []time.Duration{2 * time.Second, 8 * time.Second, 30 * time.S
 
 // Dispatcher 事件分发器：Emit 非阻塞，worker 异步投递（失败带退避重试）。
 type Dispatcher struct {
-	q  repo.Querier
-	ch chan job
-	wg sync.WaitGroup
+	q    repo.Querier
+	ch   chan job
+	stop chan struct{}
+	once sync.Once
+	wg   sync.WaitGroup
 }
 
 type job struct {
@@ -41,7 +44,7 @@ type job struct {
 }
 
 func NewDispatcher(q repo.Querier) *Dispatcher {
-	return &Dispatcher{q: q, ch: make(chan job, queueSize)}
+	return &Dispatcher{q: q, ch: make(chan job, queueSize), stop: make(chan struct{})}
 }
 
 // Start 启动 worker；进程退出前调用 Stop + Wait 避免队列内事件丢失。
@@ -52,13 +55,20 @@ func (d *Dispatcher) Start() {
 	}
 }
 
-// Stop 关闭队列（不再接收新事件）；Wait 等待 worker 排空退出。只允许调用一次。
-func (d *Dispatcher) Stop() { close(d.ch) }
+// Stop 通知 worker 排空队列后退出；channel 不关闭，Emit 永不向已关闭 channel 发送。
+func (d *Dispatcher) Stop() {
+	d.once.Do(func() { close(d.stop) })
+}
 
 func (d *Dispatcher) Wait() { d.wg.Wait() }
 
-// Emit 投递事件：队列满则丢弃并记录（宁可丢通知，不可阻塞发帖）。
+// Emit 投递事件：队列满或已停止则丢弃并记录（宁可丢通知，不可阻塞发帖）。
 func (d *Dispatcher) Emit(event string, payload any) {
+	select {
+	case <-d.stop:
+		return
+	default:
+	}
 	hooks, err := d.q.ListWebhooksByEvent(context.Background(), event)
 	if err != nil {
 		slog.Warn("webhook query failed", "event", event, "err", err)
@@ -67,6 +77,8 @@ func (d *Dispatcher) Emit(event string, payload any) {
 	for _, hook := range hooks {
 		select {
 		case d.ch <- job{hook: hook, event: event, payload: payload}:
+		case <-d.stop:
+			return
 		default:
 			slog.Warn("webhook queue full, dropping", "event", event)
 		}
@@ -76,8 +88,21 @@ func (d *Dispatcher) Emit(event string, payload any) {
 func (d *Dispatcher) worker() {
 	defer d.wg.Done()
 	hc := &http.Client{Timeout: httpTimeout}
-	for job := range d.ch {
-		d.deliverWithRetry(hc, job)
+	for {
+		select {
+		case jb := <-d.ch:
+			d.deliverWithRetry(hc, jb)
+		case <-d.stop:
+			// Stop 前已入队的事件尽量投递完；最多再处理队列中现有的 job。
+			for {
+				select {
+				case jb := <-d.ch:
+					d.deliverWithRetry(hc, jb)
+				default:
+					return
+				}
+			}
+		}
 	}
 }
 
@@ -88,6 +113,7 @@ type envelope struct {
 }
 
 // deliverWithRetry 投递失败按退避重试；总耗时上限约 45s（2s/8s/30s）。
+// Stop 后不再等待退避，避免拖住进程退出。
 func (d *Dispatcher) deliverWithRetry(hc *http.Client, jb job) {
 	for attempt := 0; ; attempt++ {
 		if d.deliver(hc, jb) {
@@ -96,7 +122,13 @@ func (d *Dispatcher) deliverWithRetry(hc *http.Client, jb job) {
 		if attempt >= len(retryBackoff) {
 			return
 		}
-		time.Sleep(retryBackoff[attempt])
+		timer := time.NewTimer(retryBackoff[attempt])
+		select {
+		case <-timer.C:
+		case <-d.stop:
+			timer.Stop()
+			return
+		}
 	}
 }
 
@@ -140,6 +172,13 @@ func hmacSign(secret string, body []byte) string {
 }
 
 func maskURL(raw string) string {
+	// URL 里常带签名/令牌；日志只保留 scheme、host、path。
+	if u, err := url.Parse(raw); err == nil {
+		u.User = nil
+		u.RawQuery = ""
+		u.Fragment = ""
+		raw = u.String()
+	}
 	if len(raw) > maxPayloadLog {
 		return raw[:maxPayloadLog]
 	}

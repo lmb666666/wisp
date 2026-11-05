@@ -96,7 +96,7 @@ func latestVersion() (int64, error) {
 
 // snapshot 用 VACUUM INTO 生成在线一致性备份（不锁库、无需外部工具）。
 func snapshot(database *sql.DB, dir string, version int64) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	name := fmt.Sprintf("pre-migrate-v%d-%s.db", version, time.Now().Format("20060102-150405"))

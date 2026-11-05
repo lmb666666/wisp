@@ -15,7 +15,7 @@ import (
 // downloadBackup 生成在线一致性快照（VACUUM INTO）并打包为 zip 下载。
 // 恢复流程见 docs/DEPLOY.md：停服 → 替换 db 文件 → 重启。
 func (s *Server) downloadBackup(c echo.Context) error {
-	if err := os.MkdirAll(s.backupDir(), 0o755); err != nil {
+	if err := os.MkdirAll(s.backupDir(), 0o700); err != nil {
 		return s.internalError(c, err)
 	}
 	name := fmt.Sprintf("web-backup-%s.db", time.Now().Format("20060102-150405"))
@@ -23,7 +23,10 @@ func (s *Server) downloadBackup(c echo.Context) error {
 	defer func() { _ = os.Remove(tmp) }()
 
 	if _, err := s.db.ExecContext(c.Request().Context(), "VACUUM INTO ?", tmp); err != nil {
-		return apiError(c, http.StatusInternalServerError, "internal", "创建快照失败: "+err.Error())
+		return s.internalError(c, err)
+	}
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		return s.internalError(c, err)
 	}
 
 	f, err := os.Open(tmp)
