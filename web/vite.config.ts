@@ -1,16 +1,26 @@
 /// <reference types="vitest/config" />
+import fs from "node:fs"
 import path from "node:path"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
+/** 清空 dist 后补回 .gitkeep，避免仓库出现未跟踪/已删除状态。 */
+function keepDistGitkeep() {
+  return {
+    name: "keep-dist-gitkeep",
+    closeBundle() {
+      fs.writeFileSync(path.resolve(import.meta.dirname, "dist/.gitkeep"), "")
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
-      registerType: "autoUpdate",
+    VitePWA({      registerType: "autoUpdate",
       includeAssets: [
         "icon.svg",
         "icon-192.png",
@@ -67,6 +77,7 @@ export default defineConfig({
         ],
       },
     }),
+    keepDistGitkeep(),
   ],
   resolve: {
     alias: {
@@ -74,13 +85,18 @@ export default defineConfig({
     },
   },
   build: {
-    // 保留 web/dist/.gitkeep，避免 GoReleaser 在构建后看到 dirty 状态
-    emptyOutDir: false,
+    // 每次构建清空旧 hash 资产，避免 PWA 把历史 chunk 也 precache；插件会补回 .gitkeep
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         // 编辑器与看图组件按需加载，控制首屏体积（函数形式：Rolldown 兼容）
         manualChunks(id: string) {
           if (!id.includes("node_modules")) return undefined
+          if (id.includes("prosemirror")) return "prosemirror"
+          if (id.includes("@tiptap/core")) return "tiptap-core"
+          if (id.includes("@tiptap/react")) return "tiptap-react"
+          if (id.includes("@tiptap/starter-kit")) return "tiptap-starter"
+          if (id.includes("@tiptap/extension")) return "tiptap-extensions"
           if (id.includes("@tiptap") || id.includes("tiptap-markdown")) return "editor"
           if (id.includes("yet-another-react-lightbox")) return "lightbox"
           return undefined

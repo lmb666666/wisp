@@ -74,9 +74,14 @@
     "locationPrompt": "Location name (e.g. Shanghai · Xuhui)",
     "locationChip": "Location",
     "published": "Posted",
+    "offlineSaveFailed": "Could not save offline. Your content is still in the editor; try again later.",
     "metingRequired": "Configure a Meting endpoint in Settings → Integrations to add music.",
     "website": "Website",
     "video": "Video"
+  },
+  "outbox": {
+    "needsAuth": "Offline posts are waiting. Please sign in again.",
+    "dropped": "Some offline posts were rejected and removed from the queue."
   },
   "time": {
     "today": "Today",
@@ -164,16 +169,17 @@
   },
   "import": {
     "title": "Import old data",
-    "hint": "Import from Memos, Moments or Ech0. Re-running skips existing posts.",
+    "hint": "Import from Memos, Moments, Ech0 or a Wisp capsule. Re-running skips existing posts.",
     "source": "Source",
-    "file": "Export file (≤64MB)",
+    "fileLimit": "Export file (≤{{mb}}MB)",
     "submit": "Start import",
     "importing": "Importing…",
     "result": "Imported: {{total}} total, {{imported}} imported, {{skipped}} deduplicated, {{failed}} failed",
-    "limits": "Memos and Moments exports don't include media — migrate files separately. Ech0 capsules include images.",
+    "limits": "Memos and Moments exports don't include media — migrate files separately. Ech0 and Wisp capsules include media.",
     "memosHint": "Official JSON export (Settings → Export, or via API)",
     "momentsHint": "moments' db.sqlite (inside the container: /app/data/db.sqlite)",
     "ech0Hint": "zip from `ech0 export capsule` (text content)",
+    "wispHint": "Wisp capsule zip (wisp.yaml version 1, with original media and blocks)",
     "chooseFile": "Choose file",
     "noFile": "No file chosen"
   },

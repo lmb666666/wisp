@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
 const SOURCES = [
-  { value: "memos", label: "Memos", hintKey: "memosHint" },
-  { value: "moments", label: "Moments", hintKey: "momentsHint" },
-  { value: "ech0", label: "Ech0", hintKey: "ech0Hint" },
+  { value: "memos", label: "Memos", hintKey: "memosHint", maxMB: 64 },
+  { value: "moments", label: "Moments", hintKey: "momentsHint", maxMB: 64 },
+  { value: "ech0", label: "Ech0", hintKey: "ech0Hint", maxMB: 64 },
+  { value: "wisp", label: "Wisp", hintKey: "wispHint", maxMB: 256 },
 ] as const
 
 /** 导入表单：选择来源 + 上传导出文件，按内容去重、可重复执行。 */
@@ -83,7 +84,7 @@ export function ImportSection() {
         </div>
 
         <div className="space-y-1.5">
-          <Label>{t("import.file")}</Label>
+          <Label>{t("import.fileLimit", { mb: SOURCES.find((s) => s.value === source)?.maxMB ?? 64 })}</Label>
           <input
             id="import-file"
             type="file"

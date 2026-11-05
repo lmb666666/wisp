@@ -18,19 +18,11 @@ export function Home() {
   const { data: me } = useMe()
 
   if (q) return <SearchResults q={q} />
-  return <Timeline filters={{ tag, from, to, tags }} authed={!!me} isOwner={!!me?.is_owner} />
+  return <Timeline filters={{ tag, from, to, tags }} authed={!!me} />
 }
 
 /** 时间线：发布框（登录后）+ 无限滚动 + 按日分组 + 组合筛选。 */
-function Timeline({
-  filters,
-  authed,
-  isOwner,
-}: {
-  filters: PostFilters
-  authed: boolean
-  isOwner: boolean
-}) {
+function Timeline({ filters, authed }: { filters: PostFilters; authed: boolean }) {
   const { t } = useTranslation()
   const posts = usePosts(filters)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -62,7 +54,7 @@ function Timeline({
   return (
     <div className="wisp-page">
       {authed && <PublishBox />}
-      <SearchBar filters={filters} isOwner={isOwner} />
+      <SearchBar filters={filters} />
       <FilterChips filters={filters} />
 
       {posts.isLoading && (
@@ -80,7 +72,7 @@ function Timeline({
 
       {groups.map((group) => (
         <section key={group.label} className="mb-1">
-          <h2 className="bg-background/85 text-muted-foreground sticky top-14 z-10 -mx-1 mb-2 px-1 py-2 text-xs font-medium backdrop-blur">
+          <h2 className="wisp-day-header bg-background/85 text-muted-foreground sticky top-14 z-10 -mx-1 mb-2 px-1 py-2 text-xs font-medium backdrop-blur">
             {group.label}
           </h2>
           <div className="wisp-stagger space-y-3">
@@ -120,7 +112,7 @@ const EMPTY_FILTERS: PostFilters = {
   tags: undefined,
 }
 
-function SearchBar({ filters, isOwner }: { filters: PostFilters; isOwner: boolean }) {
+function SearchBar({ filters }: { filters: PostFilters }) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [input, setInput] = useState("")
@@ -193,7 +185,6 @@ function SearchBar({ filters, isOwner }: { filters: PostFilters; isOwner: boolea
         open={open}
         onOpenChange={setOpen}
         filters={filters}
-        isOwner={isOwner}
         onApply={(next) => go({ ...filters, ...next, tag: undefined })}
       />
     </>

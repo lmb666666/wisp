@@ -43,18 +43,16 @@ function rangeOf(preset: "today" | "7d" | "30d" | "year"): { from: string; to: s
   return { from: dateInput(from.getTime() / 1000), to: dateInput(now.getTime() / 1000) }
 }
 
-/** 时间线筛选面板：日期预设/自定义、可见性、标签多选（ALL 语义）。 */
+/** 时间线筛选面板：日期预设/自定义、标签多选（ALL 语义）。 */
 export function FilterPanel({
   open,
   onOpenChange,
   filters,
-  isOwner,
   onApply,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   filters: PostFilters
-  isOwner: boolean
   onApply: (next: Pick<PostFilters, "from" | "to" | "tags">) => void
 }) {
   return (
@@ -62,7 +60,6 @@ export function FilterPanel({
       {open && (
         <FilterForm
           filters={filters}
-          isOwner={isOwner}
           onApply={onApply}
           onClose={() => onOpenChange(false)}
         />
@@ -77,7 +74,6 @@ function FilterForm({
   onClose,
 }: {
   filters: PostFilters
-  isOwner: boolean
   onApply: (next: Pick<PostFilters, "from" | "to" | "tags">) => void
   onClose: () => void
 }) {

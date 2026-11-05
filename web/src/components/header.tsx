@@ -24,7 +24,7 @@ export function Header() {
   ]
 
   return (
-    <header className="border-border/70 bg-background/85 sticky top-0 z-20 border-b backdrop-blur-md">
+    <header className="wisp-header border-border/70 bg-background/85 sticky top-0 z-20 border-b backdrop-blur-md">
       <div className="mx-auto flex h-14 w-full max-w-[720px] items-center gap-2 px-4">
         <Link to="/" className="mr-1 flex items-center gap-2 rounded-lg py-1">
           <AppLogo className="size-7" />

@@ -1,23 +1,9 @@
 import { ofetch, type FetchError } from "ofetch"
 
-/** 访客匿名标识：localStorage 持久化的 UUID。 */
-export function getClientID(): string {
-  let id = localStorage.getItem("wisp-client-id")
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem("wisp-client-id", id)
-  }
-  return id
-}
-
 export const api = ofetch.create({
   baseURL: "/api/v1",
   credentials: "include",
   retry: 0,
-  onRequest({ options }) {
-    const headers = (options.headers ||= new Headers()) as Headers
-    headers.set("X-Client-ID", getClientID())
-  },
 })
 
 export interface ApiError {

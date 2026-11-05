@@ -4,6 +4,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   useRouterState,
 } from "@tanstack/react-router"
 
@@ -12,17 +13,19 @@ import { useOutboxFlusher } from "@/hooks/use-outbox-flusher"
 import { Header } from "@/components/header"
 import { Toaster } from "@/components/ui/sonner"
 import { InstallHints } from "@/components/install-hints"
-import { DataPage } from "@/routes/data"
 import { Home } from "@/routes/home"
 import { Login } from "@/routes/login"
-import { PasskeysPage } from "@/routes/passkeys"
-import { PostPage } from "@/routes/post"
 import { SettingsLayout } from "@/routes/settings"
-import { SharePage } from "@/routes/share"
-import { StatsPage } from "@/routes/stats"
-import { StoragePage } from "@/routes/storage"
-import { TokensPage } from "@/routes/tokens"
-import { WebhooksPage } from "@/routes/webhooks"
+
+// 首屏只加载时间线与登录页；其余按路由拆分，避免把统计/设置/编辑器一次性打进主 chunk。
+const PostPage = lazyRouteComponent(() => import("@/routes/post"), "PostPage")
+const StatsPage = lazyRouteComponent(() => import("@/routes/stats"), "StatsPage")
+const SharePage = lazyRouteComponent(() => import("@/routes/share"), "SharePage")
+const PasskeysPage = lazyRouteComponent(() => import("@/routes/passkeys"), "PasskeysPage")
+const TokensPage = lazyRouteComponent(() => import("@/routes/tokens"), "TokensPage")
+const StoragePage = lazyRouteComponent(() => import("@/routes/storage"), "StoragePage")
+const WebhooksPage = lazyRouteComponent(() => import("@/routes/webhooks"), "WebhooksPage")
+const DataPage = lazyRouteComponent(() => import("@/routes/data"), "DataPage")
 
 /** 路由切换回到顶部（页面内容动画由各叶页面自己播放，避免布局重挂载）。 */
 function ScrollToTop() {
@@ -41,7 +44,7 @@ function RootLayout() {
       <Header />
       <InstallHints />
       <ScrollToTop />
-      <main className="mx-auto w-full max-w-[720px] px-4 pb-24">
+      <main className="wisp-main mx-auto w-full max-w-[720px] px-4">
         <Outlet />
       </main>
       <Toaster />

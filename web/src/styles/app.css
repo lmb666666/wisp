@@ -119,9 +119,20 @@
   .wisp-card-interactive {
     @apply transition-[transform,box-shadow] duration-200;
   }
-  .wisp-card-interactive:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lift);
+  .wisp-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .wisp-main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+  .wisp-day-header {
+    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+  @media (hover: hover) {
+    .wisp-card-interactive:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lift);
+    }
   }
   .wisp-chip {
     @apply border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors;

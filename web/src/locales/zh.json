@@ -74,9 +74,14 @@
     "locationPrompt": "位置名称（如：上海 · 徐汇）",
     "locationChip": "位置",
     "published": "已发布",
+    "offlineSaveFailed": "无法离线保存，内容已保留在编辑框，可稍后重试发布",
     "metingRequired": "先在 设置 → 集成 配置 Meting 接口，才能添加音乐。",
     "website": "网站",
     "video": "视频"
+  },
+  "outbox": {
+    "needsAuth": "有离线内容等待发布，请先重新登录",
+    "dropped": "有离线内容发布失败（请求被拒绝），已从队列移除"
   },
   "time": {
     "today": "今天",
@@ -164,16 +169,17 @@
   },
   "import": {
     "title": "导入旧数据",
-    "hint": "从 Memos、Moments 或 Ech0 导入。重复导入会自动跳过已有内容。",
+    "hint": "从 Memos、Moments、Ech0 或 Wisp 内容包导入。重复导入会自动跳过已有内容。",
     "source": "来源",
-    "file": "导出文件（≤64MB）",
+    "fileLimit": "导出文件（≤{{mb}}MB）",
     "submit": "开始导入",
     "importing": "导入中…",
     "result": "导入完成：共 {{total}} 条，成功 {{imported}}，去重跳过 {{skipped}}，失败 {{failed}}",
-    "limits": "Memos 与 Moments 的导出不含媒体文件，需要从原站另外迁移。Ech0 胶囊会连图片一起导入。",
+    "limits": "Memos 与 Moments 的导出不含媒体文件，需要从原站另外迁移。Ech0 与 Wisp 内容包会连媒体一起导入。",
     "memosHint": "官方导出的 JSON 文件（Settings → Export，或 API 导出）",
     "momentsHint": "moments 的 db.sqlite（容器内 /app/data/db.sqlite）",
     "ech0Hint": "ech0 export capsule 导出的 zip（文本部分）",
+    "wispHint": "Wisp 内容包 zip（wisp.yaml version 1，含原图与扩展卡片）",
     "chooseFile": "选择文件",
     "noFile": "未选择文件"
   },

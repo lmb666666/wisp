@@ -1,5 +1,5 @@
 import { Blurhash } from "react-blurhash"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { MusicCard } from "@/components/music-card"
 import { ArrowUpRight, GitBranch, MapPin, Share2 } from "lucide-react"
 import { Suspense, lazy, useState } from "react"
@@ -80,17 +80,27 @@ export function PostCard({
   variant?: "timeline" | "detail"
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const optimistic = post.id.startsWith("optimistic-")
+  const clickable = !optimistic && variant === "timeline"
+
+  const openPost = (e: React.MouseEvent) => {
+    if (!clickable) return
+    const target = e.target as HTMLElement
+    if (target.closest("a, button, input, textarea, select, video, audio, iframe")) return
+    if (window.getSelection()?.toString()) return
+    navigate({ to: "/p/$postId", params: { postId: post.id } })
+  }
 
   const content = (
-    <>
+    <div onClick={openPost} className={clickable ? "cursor-pointer" : undefined}>
       <div className="post-content text-[15px] leading-relaxed" onClick={handleContentClick}>
         <div dangerouslySetInnerHTML={{ __html: post.content_html }} />
       </div>
       <div onClick={(e) => e.stopPropagation()}>
         <AttachmentGrid attachments={post.attachments} />
       </div>
-    </>
+    </div>
   )
 
   return (
@@ -108,13 +118,7 @@ export function PostCard({
           {post.edited_at ? <span>{t("card.edited")}</span> : null}
         </div>
 
-        {optimistic ? (
-          content
-        ) : (
-          <Link to="/p/$postId" params={{ postId: post.id }} className="block">
-            {content}
-          </Link>
-        )}
+        {content}
 
         <BlocksSection blocks={post.blocks} />
 

@@ -12,7 +12,7 @@ import {
   Video,
   X,
 } from "lucide-react"
-import { useState } from "react"
+import { Suspense, lazy, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -21,9 +21,9 @@ import { api } from "@/api/client"
 import { useDeletePost, usePost, useUpdatePost } from "@/api/posts"
 import { BlockDialog, type BlockInput, type BlockKind } from "@/components/block-dialog"
 import { EditorToolbar } from "@/components/editor-toolbar"
-import { MarkdownEditor } from "@/components/markdown-editor"
 import { dayLabel, PostCard } from "@/components/post-card"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+const MarkdownEditor = lazy(() =>
+  import("@/components/markdown-editor").then((m) => ({ default: m.MarkdownEditor })),
+)
 
 /** 说说详情：permalink + 编辑/删除（登录后）。 */
 export function PostPage() {
@@ -197,12 +201,14 @@ function EditPanel({
 
   return (
     <div className="wisp-card overflow-hidden">
-      <MarkdownEditor
-        initialContent={post.content_md}
-        onUpdate={setMd}
-        onReady={setEditor}
-        autoFocus
-      />
+      <Suspense fallback={<Skeleton className="m-3 h-28" />}>
+        <MarkdownEditor
+          initialContent={post.content_md}
+          onUpdate={setMd}
+          onReady={setEditor}
+          autoFocus
+        />
+      </Suspense>
       <div className="border-border/70 flex flex-wrap items-center gap-1 border-t px-2 py-1.5">
         <EditorToolbar
           editor={editor}

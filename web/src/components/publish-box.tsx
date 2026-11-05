@@ -14,6 +14,7 @@ import { BlockDialog, type BlockInput, type BlockKind } from "@/components/block
 import { EditorToolbar } from "@/components/editor-toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { randomUUID } from "@/lib/id"
 
 const MarkdownEditor = lazy(() =>
   import("@/components/markdown-editor").then((m) => ({ default: m.MarkdownEditor })),
@@ -223,7 +224,7 @@ function PublishBoxInner({
   const publish = () => {
     const content = markdown.trim()
     if (!content && attachments.length === 0 && blocks.length === 0) return
-    const key = crypto.randomUUID()
+    const key = randomUUID()
     const input = {
       content_md: content,
       attachment_ids: attachments.map((a) => a.id),
@@ -256,7 +257,7 @@ function PublishBoxInner({
               })
               .catch(() => {
                 // 队列写失败（隐私模式/存储满）：内容保留在编辑框，不静默丢失
-                toast.error("无法离线保存，内容已保留在编辑框，可稍后重试发布")
+                toast.error(t("publish.offlineSaveFailed"))
               })
           } else {
             toast.error(apiError(err).message)
