@@ -410,5 +410,26 @@
     "hoursMinutes": "{{h}} 小时 {{m}} 分",
     "minutes": "{{m}} 分钟",
     "lastBackupAt": "上次备份：{{time}}"
+  },
+  "mood": {
+    "prompt": "今天心情如何？",
+    "todayLabel": "今天 · {{mood}}",
+    "recent": "{{m}} 月 {{d}} 日 · {{mood}}",
+    "clear": "清除",
+    "saveFailed": "心情没保存上，请重试",
+    "deleteFailed": "清除失败，请重试",
+    "happy": "开心",
+    "calm": "平静",
+    "okay": "一般",
+    "tired": "疲惫",
+    "low": "低落",
+    "tab": "心情",
+    "recordedDays": "记录 {{n}} 天",
+    "empty": "今年还没有心情记录",
+    "backfillHint": "点选日期可补记",
+    "distribution": "心情分布",
+    "pickDate": "选择 {{date}} 的心情",
+    "loading": "加载中…",
+    "loadFailed": "心情加载失败"
   }
 }

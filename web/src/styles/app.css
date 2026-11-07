@@ -32,6 +32,13 @@
   --code-string: oklch(0.48 0.11 150);
   --code-function: oklch(0.48 0.09 245);
   --code-number: oklch(0.55 0.12 70);
+
+  /* 心情色阶：暖 → 中性 → 冷（正向到低能量） */
+  --mood-happy: oklch(0.62 0.14 55);
+  --mood-calm: oklch(0.62 0.06 150);
+  --mood-okay: oklch(0.66 0.03 80);
+  --mood-tired: oklch(0.6 0.05 300);
+  --mood-low: oklch(0.58 0.06 250);
 }
 
 .dark {
@@ -61,6 +68,12 @@
   --code-string: oklch(0.78 0.1 150);
   --code-function: oklch(0.78 0.08 235);
   --code-number: oklch(0.8 0.11 80);
+
+  --mood-happy: oklch(0.76 0.12 60);
+  --mood-calm: oklch(0.76 0.06 150);
+  --mood-okay: oklch(0.78 0.03 80);
+  --mood-tired: oklch(0.74 0.05 300);
+  --mood-low: oklch(0.72 0.06 250);
 }
 
 @theme inline {
@@ -115,6 +128,63 @@
   .wisp-card {
     @apply bg-card border-border rounded-2xl border;
     box-shadow: var(--shadow-card);
+  }
+  [data-mood="happy"] {
+    --mood-color: var(--mood-happy);
+  }
+  [data-mood="calm"] {
+    --mood-color: var(--mood-calm);
+  }
+  [data-mood="okay"] {
+    --mood-color: var(--mood-okay);
+  }
+  [data-mood="tired"] {
+    --mood-color: var(--mood-tired);
+  }
+  [data-mood="low"] {
+    --mood-color: var(--mood-low);
+  }
+  .mood-text {
+    color: var(--mood-color);
+  }
+  .mood-option[data-active="true"] {
+    color: var(--mood-color);
+    background: color-mix(in oklch, var(--mood-color) 14%, transparent);
+  }
+  .mood-option:hover:not(:disabled):not([data-active="true"]) {
+    background: var(--accent);
+  }
+  .mood-cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: color-mix(in oklch, var(--muted-foreground) 10%, transparent);
+    transition:
+      transform 150ms var(--ease-out-soft),
+      background-color 150ms ease;
+  }
+  .mood-cell[data-mood] {
+    background: color-mix(in oklch, var(--mood-color) 70%, var(--card));
+  }
+  .mood-day[data-mood] {
+    background: color-mix(in oklch, var(--mood-color) 14%, var(--card));
+  }
+  .mood-cell[aria-pressed="true"] {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  @media (hover: hover) {
+    .mood-cell:not(:disabled):hover {
+      transform: scale(1.15);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mood-cell,
+    .mood-option {
+      transition: none;
+    }
+    .mood-cell:not(:disabled):hover {
+      transform: none;
+    }
   }
   .wisp-card-interactive {
     @apply transition-[transform,box-shadow] duration-200;

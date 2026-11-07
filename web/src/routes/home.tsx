@@ -5,14 +5,18 @@ import { useTranslation } from "react-i18next"
 
 import { useMe } from "@/api/auth"
 import { splitTagFilter, type PostFilters } from "@/api/client"
+import { useLatestMood, useMoods } from "@/api/moods"
 import { usePosts, useSearch as useSearchQuery } from "@/api/posts"
 import { FilterPanel } from "@/components/filter-panel"
+import { MoodBar } from "@/components/mood-bar"
+import { MoodIcon } from "@/components/mood-icon"
 import { PostCard } from "@/components/post-card"
 import { PublishBox } from "@/components/publish-box"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { dayLabel } from "@/lib/dates"
+import { dateKey, dayLabel, daysAgoKey, daysBetween, todayKey } from "@/lib/dates"
 import { activeFilterCount } from "@/lib/filters"
+import { moodByDate } from "@/lib/moods"
 
 /** 时间线入口：有搜索词走结果页，否则时间线。 */
 export function Home() {
@@ -43,21 +47,31 @@ function Timeline({ filters, authed }: { filters: PostFilters; authed: boolean }
 
   const groups = useMemo(() => {
     const items = posts.data?.pages.flatMap((p) => p.items) ?? []
-    const out: { label: string; posts: typeof items }[] = []
+    const out: { date: string; label: string; posts: typeof items }[] = []
     for (const post of items) {
-      const label = dayLabel(post.published_at, t)
+      const date = dateKey(post.published_at)
       const last = out[out.length - 1]
-      if (last && last.label === label) last.posts.push(post)
-      else out.push({ label, posts: [post] })
+      if (last && last.date === date) last.posts.push(post)
+      else out.push({ date, label: dayLabel(post.published_at, t), posts: [post] })
     }
     return out
   }, [posts.data, t])
 
+  // 心情按已加载帖子范围查询；超过 10 年时 clamp 到接口上限内。
+  const today = todayKey()
+  const oldest = groups[groups.length - 1]?.date
+  const limit = daysAgoKey(3650)
+  const moodFrom = oldest && oldest < limit ? limit : (oldest ?? today)
+  const moods = useMoods(moodFrom, today, groups.length > 0)
+  const moodsByDay = useMemo(() => moodByDate(moods.data?.items ?? []), [moods.data])
+
   return (
     <div className="wisp-page">
       {authed && <PublishBox />}
+      {authed && <MoodBar />}
       <SearchBar filters={filters} />
       <FilterChips filters={filters} />
+      {!authed && <RecentMood />}
 
       {posts.isLoading && (
         <p className="text-muted-foreground py-10 text-center text-sm">{t("common.loading")}</p>
@@ -72,18 +86,27 @@ function Timeline({ filters, authed }: { filters: PostFilters; authed: boolean }
         </div>
       )}
 
-      {groups.map((group) => (
-        <section key={group.label} className="mb-1">
-          <h2 className="wisp-day-header bg-background/85 text-muted-foreground sticky top-14 z-10 -mx-1 mb-2 px-1 py-2 text-xs font-medium backdrop-blur">
-            {group.label}
-          </h2>
-          <div className="wisp-stagger space-y-3">
-            {group.posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map((group) => {
+        const mood = group.date === today ? undefined : moodsByDay.get(group.date)
+        return (
+          <section key={group.date} className="mb-1">
+            <h2 className="wisp-day-header bg-background/85 text-muted-foreground sticky top-14 z-10 -mx-1 mb-2 flex items-center justify-between gap-2 px-1 py-2 text-xs font-medium backdrop-blur">
+              <span>{group.label}</span>
+              {mood && (
+                <span className="flex items-center gap-1 font-normal" data-mood={mood}>
+                  <MoodIcon mood={mood} className="mood-text size-3.5" />
+                  <span className="mood-text">{t(`mood.${mood}`)}</span>
+                </span>
+              )}
+            </h2>
+            <div className="wisp-stagger space-y-3">
+              {group.posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          </section>
+        )
+      })}
 
       {!posts.isLoading && !posts.isError && groups.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-20 text-center">
@@ -104,6 +127,25 @@ function Timeline({ filters, authed }: { filters: PostFilters; authed: boolean }
         <p className="text-muted-foreground py-4 text-center text-sm">{t("common.loadMore")}</p>
       )}
     </div>
+  )
+}
+
+/** 访客看到的最近心情：带日期、仅 7 天内，不写「今天」以避免时区歧义。 */
+function RecentMood() {
+  const { t } = useTranslation()
+  const { data } = useLatestMood()
+  if (!data) return null
+  if (Math.abs(daysBetween(todayKey(), data.date)) > 7) return null
+  const month = Number(data.date.slice(5, 7))
+  const day = Number(data.date.slice(8, 10))
+  return (
+    <p
+      className="text-muted-foreground mb-1 flex items-center justify-center gap-1.5 text-xs"
+      data-mood={data.mood}
+    >
+      <MoodIcon mood={data.mood} className="mood-text size-4" />
+      <span>{t("mood.recent", { m: month, d: day, mood: t(`mood.${data.mood}`) })}</span>
+    </p>
   )
 }
 

@@ -410,5 +410,26 @@
     "hoursMinutes": "{{h}}h {{m}}m",
     "minutes": "{{m}}m",
     "lastBackupAt": "Last backup: {{time}}"
+  },
+  "mood": {
+    "prompt": "How are you feeling today?",
+    "todayLabel": "Today · {{mood}}",
+    "recent": "{{m}}/{{d}} · {{mood}}",
+    "clear": "Clear",
+    "saveFailed": "Couldn't save your mood. Try again.",
+    "deleteFailed": "Couldn't clear it. Try again.",
+    "happy": "Happy",
+    "calm": "Calm",
+    "okay": "Okay",
+    "tired": "Tired",
+    "low": "Low",
+    "tab": "Mood",
+    "recordedDays": "{{n}} days recorded",
+    "empty": "No moods recorded this year.",
+    "backfillHint": "Tap a day to backfill",
+    "distribution": "Mood breakdown",
+    "pickDate": "Mood for {{date}}",
+    "loading": "Loading…",
+    "loadFailed": "Couldn't load moods."
   }
 }

@@ -54,7 +54,7 @@ const statsRoute = createRoute({
   path: "/stats",
   component: StatsPage,
   validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
-    tab: ["stats", "archive", "tags", "overview"].includes(String(search.tab))
+    tab: ["stats", "mood", "archive", "tags", "overview"].includes(String(search.tab))
       ? String(search.tab)
       : undefined,
   }),

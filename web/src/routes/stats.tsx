@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MoodTab } from "@/components/mood-calendar"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -84,6 +85,7 @@ export function StatsPage() {
           <TabsList>
             {isOwner && <TabsTrigger value="overview">{t("stats.tabOverview")}</TabsTrigger>}
             <TabsTrigger value="stats">{t("stats.tabStats")}</TabsTrigger>
+            <TabsTrigger value="mood">{t("mood.tab")}</TabsTrigger>
             <TabsTrigger value="archive">{t("stats.tabArchive")}</TabsTrigger>
             <TabsTrigger value="tags">{t("stats.tabTags")}</TabsTrigger>
           </TabsList>
@@ -92,6 +94,7 @@ export function StatsPage() {
 
       {current === "overview" && <Overview />}
       {current === "stats" && <Heatmap />}
+      {current === "mood" && <MoodTab isOwner={isOwner} />}
       {current === "archive" && <ArchiveList />}
       {current === "tags" && <TagCloud />}
     </div>
