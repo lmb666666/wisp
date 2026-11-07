@@ -7,7 +7,7 @@ require (
 	github.com/buckket/go-blurhash v1.1.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/go-webauthn/webauthn v0.18.2
-	github.com/labstack/echo/v4 v4.16.2
+	github.com/labstack/echo/v4 v4.16.3
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.29.0
