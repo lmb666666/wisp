@@ -548,7 +548,9 @@ func TestAPIFullFlow(t *testing.T) {
 				music.Title, music.Cover, music.AudioURL = b.Title, b.Cover, b.AudioURL
 			}
 		}
-		if music.AudioURL != "" {
+		// audio_url 有同步兜底值（不依赖预取），必须等标题也写入后再断言，
+		// 否则会在预取 goroutine 完成前提前退出（-race 下必现）。
+		if music.Title != "" && music.AudioURL != "" {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
