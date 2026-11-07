@@ -9,7 +9,7 @@
 | Memos | Settings → Export 的 JSON | 正文、时间、可见性、位置 |
 | Moments | 容器内 `/app/data/db.sqlite` | `Memo` 表：正文、时间、可见性、位置 |
 | Ech0 | `ech0 export capsule --zip` | `echoes/**/*.md` 的 frontmatter 与正文；可含媒体 |
-| Wisp | 内容包 zip（`wisp.yaml` version 1） | 正文、标签、位置、扩展卡片、原图/视频封面 |
+| Wisp | 内容包 zip（`wisp.yaml` version 1） | 正文、标签、位置、扩展卡片、原图/视频封面、每日心情 |
 
 步骤：旧应用导出 → Wisp 侧先做一次数据库备份 → 上传导入 → 检查时间线 / 标签 / 附件 / 扩展卡片。重复导入是安全的。
 
@@ -60,6 +60,7 @@ wisp-capsule/
   wisp.yaml
   posts/2026/10/<ulid>.md
   files/2026/10/<ulid>.png
+  moods.yaml            # 可选；没有心情记录时不生成
 ```
 
 `wisp.yaml`：
@@ -68,9 +69,19 @@ wisp-capsule/
 version: 1
 exported_at: 1792229851
 source_url: https://wisp.example.com
-stats: {posts: 128, attachments: 45, media_bytes: 12345678}
+stats: {posts: 128, attachments: 45, media_bytes: 12345678, moods: 86}
 warnings: []
 ```
+
+`moods.yaml`（可选，按日期升序）：
+
+```yaml
+- date: "2026-11-07"
+  mood: calm
+```
+
+- 心情随内容包一起导出/恢复；**版本仍为 1**，旧版 Wisp 导入新包时会忽略该文件，不影响帖子导入。
+- 导入时逐条校验，非法日期/心情跳过；重复导入按日期覆盖，结果幂等。
 
 每条帖子是一个 Markdown 文件，frontmatter 示例：
 
@@ -100,6 +111,7 @@ attachments:
 界面：**设置 → 数据 → 导入旧数据**，来源选 **Wisp**，上传 zip。API：`POST /api/v1/admin/import`（multipart `source=wisp` + `file`）。
 
 - 格式校验：必须包含 `wisp.yaml` 且 `version: 1`，不兼容版本直接拒绝。
+- `moods.yaml` 可选；存在时按日期 upsert 恢复每日心情，非法条目跳过。
 - 视频封面写入本地存储并按附件 ID 回填；外链附件（未打包媒体）以 `remote_url` 建远程附件记录，不占本地空间。
 - zip 条目路径拒绝 `..`、绝对路径与反斜杠；导入不执行正文中的原始 HTML。
 - 去重与上限见上文「去重与附件」「限制」。

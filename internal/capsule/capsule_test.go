@@ -88,13 +88,19 @@ func TestExportWritesManifestPostsAndMedia(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := q.UpsertMood(ctx, repo.UpsertMoodParams{
+		UserID: user.ID, MoodDate: "2026-11-07", Mood: "calm",
+		CreatedAt: now.Unix(), UpdatedAt: now.Unix(),
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	var buf bytes.Buffer
 	stats, err := Export(ctx, q, local, &buf, Options{SourceURL: "https://wisp.example"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.Posts != 1 || stats.Attachments != 1 || stats.MediaBytes != 9 {
+	if stats.Posts != 1 || stats.Attachments != 1 || stats.MediaBytes != 9 || stats.Moods != 1 {
 		t.Fatalf("stats = %+v", stats)
 	}
 
@@ -131,6 +137,13 @@ func TestExportWritesManifestPostsAndMedia(t *testing.T) {
 	}
 	if got := string(entries["files/"+key]); got != "jpeg-data" {
 		t.Fatalf("媒体内容 = %q", got)
+	}
+	moods, ok := entries["moods.yaml"]
+	if !ok {
+		t.Fatalf("缺少 moods.yaml；实际条目 %v", keys(entries))
+	}
+	if !strings.Contains(string(moods), "2026-11-07") || !strings.Contains(string(moods), "mood: calm") {
+		t.Fatalf("moods.yaml = %s", moods)
 	}
 }
 

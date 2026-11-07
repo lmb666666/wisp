@@ -35,6 +35,7 @@ type Stats struct {
 	Posts       int      `yaml:"posts"`
 	Attachments int      `yaml:"attachments"`
 	MediaBytes  int64    `yaml:"media_bytes"`
+	Moods       int      `yaml:"moods,omitempty"`
 	Warnings    []string `yaml:"-"`
 }
 
@@ -55,6 +56,12 @@ type Block struct {
 	Name string   `yaml:"name,omitempty" json:"name,omitempty"`
 	Lat  *float64 `yaml:"lat,omitempty" json:"lat,omitempty"`
 	Lng  *float64 `yaml:"lng,omitempty" json:"lng,omitempty"`
+}
+
+// Mood 每日心情（moods.yaml，可缺省；旧版本会忽略该文件）。
+type Mood struct {
+	Date string `yaml:"date"`
+	Mood string `yaml:"mood"`
 }
 
 // Attachment 附件清单。
@@ -142,6 +149,29 @@ func Export(ctx context.Context, q repo.Querier, store media.Storage, w io.Write
 		}
 
 		if err := writePost(zw, post, front); err != nil {
+			return stats, err
+		}
+	}
+
+	moods, err := q.ListAllMoods(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("list moods: %w", err)
+	}
+	stats.Moods = len(moods)
+	if len(moods) > 0 {
+		items := make([]Mood, 0, len(moods))
+		for _, m := range moods {
+			items = append(items, Mood{Date: m.MoodDate, Mood: m.Mood})
+		}
+		data, err := yaml.Marshal(items)
+		if err != nil {
+			return stats, fmt.Errorf("marshal moods: %w", err)
+		}
+		entry, err := zw.Create("moods.yaml")
+		if err != nil {
+			return stats, err
+		}
+		if _, err := entry.Write(data); err != nil {
 			return stats, err
 		}
 	}

@@ -691,6 +691,14 @@ func TestCapsuleRoundTrip(t *testing.T) {
 		}
 	}
 
+	// 心情随内容包一起导出/导入
+	today := time.Now().UTC().Format("2006-01-02")
+	for date, value := range map[string]string{"2020-01-02": "tired", today: "calm"} {
+		if code, b := ownerJSON(ownerA, "PUT", baseA+"/api/v1/moods/"+date, map[string]string{"mood": value}); code != 200 {
+			t.Fatalf("set mood %s: %d %s", date, code, b)
+		}
+	}
+
 	// 导出
 	req, _ := http.NewRequest("GET", baseA+"/api/v1/admin/export/capsule", nil)
 	resp, err := ownerA.Do(req)
@@ -712,6 +720,9 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	}
 	if !names["wisp.yaml"] {
 		t.Error("wisp.yaml missing")
+	}
+	if !names["moods.yaml"] {
+		t.Error("moods.yaml missing")
 	}
 	var postFiles, mediaFiles int
 	for name := range names {
@@ -745,6 +756,9 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	_ = json.Unmarshal(impBody, &imp)
 	if impResp.StatusCode != 200 || imp["imported"].(float64) != 5 {
 		t.Fatalf("import: %d %s", impResp.StatusCode, impBody)
+	}
+	if got, _ := imp["moods_imported"].(float64); got != 2 {
+		t.Fatalf("import moods = %v, want 2 (%s)", imp["moods_imported"], impBody)
 	}
 
 	// B 侧校验
@@ -796,6 +810,11 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	if !sawLocationTag || !sawImage || !sawBlocks || !sawImageOnly {
 		t.Fatalf("roundtrip mismatch: tag=%v image=%v blocks=%v imageOnly=%v",
 			sawLocationTag, sawImage, sawBlocks, sawImageOnly)
+	}
+	code, body = ownerJSON(guestB, "GET", baseB+"/api/v1/moods?from=2020-01-01&to="+today, nil)
+	if code != 200 || strings.Count(string(body), `"date":`) != 2 ||
+		!strings.Contains(string(body), `"mood":"calm"`) || !strings.Contains(string(body), `"mood":"tired"`) {
+		t.Fatalf("B moods = %d %s", code, body)
 	}
 
 	// 再次导入应全部去重

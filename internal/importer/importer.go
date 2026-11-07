@@ -21,6 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/lmb666666/wisp/internal/capsule"
+	"github.com/lmb666666/wisp/internal/mood"
 )
 
 // Post 归一化后的导入条目。
@@ -33,6 +34,18 @@ type Post struct {
 	Tags        []string
 	Blocks      []Block
 	Files       []PostFile // 随帖附件
+}
+
+// Mood 每日心情（Wisp capsule 的 moods.yaml）。
+type Mood struct {
+	Date string `yaml:"date"`
+	Mood string `yaml:"mood"`
+}
+
+// Result wisp capsule 的解析结果：帖子 + 可选心情。
+type Result struct {
+	Posts []Post
+	Moods []Mood
 }
 
 // Block 扩展卡片（Wisp capsule 使用）。
@@ -72,37 +85,48 @@ func normalizeVisibility(v string) string {
 
 // ParseFile 从磁盘读取（wisp capsule 用流式 zip.Reader，避免大包全部进内存）。
 func ParseFile(source, file string) ([]Post, error) {
-	if source != "wisp" {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		return Parse(source, data)
+	if source == "wisp" {
+		result, err := ParseWispFile(file)
+		return result.Posts, err
 	}
-	f, err := os.Open(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
+	}
+	return Parse(source, data)
+}
+
+// ParseWispFile 从磁盘读取 Wisp 内容包，返回帖子与可选心情。
+func ParseWispFile(file string) (Result, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return Result{}, err
 	}
 	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return Result{}, err
 	}
 	zr, err := zip.NewReader(f, st.Size())
 	if err != nil {
-		return nil, fmt.Errorf("打开 wisp capsule: %w", err)
+		return Result{}, fmt.Errorf("打开 wisp capsule: %w", err)
 	}
-	return parseWispZip(zr)
+	posts, err := parseWispZip(zr)
+	if err != nil {
+		return Result{}, err
+	}
+	moods, err := parseWispMoods(zr)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Posts: posts, Moods: moods}, nil
 }
 
 // Parse 依据 source 分发解析。
 func Parse(source string, data []byte) ([]Post, error) {
 	if source == "wisp" {
-		zr, err := zip.NewReader(bytesReader(data), int64(len(data)))
-		if err != nil {
-			return nil, fmt.Errorf("打开 wisp capsule: %w", err)
-		}
-		return parseWispZip(zr)
+		result, err := ParseWisp(data)
+		return result.Posts, err
 	}
 	if len(data) > maxImportSize {
 		return nil, fmt.Errorf("文件超过 64MB 限制")
@@ -117,6 +141,23 @@ func Parse(source string, data []byte) ([]Post, error) {
 	default:
 		return nil, fmt.Errorf("未知来源 %q（支持 memos / moments / ech0）", source)
 	}
+}
+
+// ParseWisp 从内存解析 Wisp 内容包，返回帖子与可选心情。
+func ParseWisp(data []byte) (Result, error) {
+	zr, err := zip.NewReader(bytesReader(data), int64(len(data)))
+	if err != nil {
+		return Result{}, fmt.Errorf("打开 wisp capsule: %w", err)
+	}
+	posts, err := parseWispZip(zr)
+	if err != nil {
+		return Result{}, err
+	}
+	moods, err := parseWispMoods(zr)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Posts: posts, Moods: moods}, nil
 }
 
 // ---------- Memos：官方导出 JSON ----------
@@ -540,6 +581,33 @@ func parseWispZip(zr *zip.Reader) ([]Post, error) {
 		return nil, fmt.Errorf("capsule 中没有 posts/ 内容")
 	}
 	return posts, nil
+}
+
+// parseWispMoods 读取可选的 moods.yaml；旧内容包没有该文件时返回空。
+// 非法条目跳过而不中断整包导入，避免一条脏数据挡住全部内容。
+func parseWispMoods(zr *zip.Reader) ([]Mood, error) {
+	for _, f := range zr.File {
+		if f.Name != "moods.yaml" {
+			continue
+		}
+		raw, err := readZipEntry(f, maxCapsuleMeta)
+		if err != nil {
+			return nil, fmt.Errorf("读取 moods.yaml: %w", err)
+		}
+		var items []Mood
+		if err := yaml.Unmarshal(raw, &items); err != nil {
+			return nil, fmt.Errorf("解析 moods.yaml: %w", err)
+		}
+		out := make([]Mood, 0, len(items))
+		for _, item := range items {
+			if !mood.Valid(item.Mood) || !mood.ValidDate(item.Date) {
+				continue
+			}
+			out = append(out, item)
+		}
+		return out, nil
+	}
+	return nil, nil
 }
 
 // readZipEntry 限制单条解压大小并传播 CRC/读取错误。

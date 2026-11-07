@@ -17,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/lmb666666/wisp/internal/importer"
+	"github.com/lmb666666/wisp/internal/mood"
 	"github.com/lmb666666/wisp/internal/repo"
 	"github.com/lmb666666/wisp/internal/service"
 	"github.com/lmb666666/wisp/internal/util"
@@ -46,6 +47,7 @@ func (s *Server) adminImport(c echo.Context) error {
 	defer f.Close()
 
 	var posts []importer.Post
+	var moods []importer.Mood
 	if source == "wisp" {
 		tmp, err := os.CreateTemp("", "wisp-capsule-*.zip")
 		if err != nil {
@@ -57,10 +59,11 @@ func (s *Server) adminImport(c echo.Context) error {
 			return apiError(c, http.StatusBadRequest, "bad_request", "读取文件失败")
 		}
 		_ = tmp.Close()
-		posts, err = importer.ParseFile(source, tmp.Name())
+		result, err := importer.ParseWispFile(tmp.Name())
 		if err != nil {
 			return apiError(c, http.StatusBadRequest, "bad_request", err.Error())
 		}
+		posts, moods = result.Posts, result.Moods
 	} else {
 		data, err := io.ReadAll(io.LimitReader(f, maxImportFile+1))
 		if err != nil {
@@ -154,6 +157,7 @@ func (s *Server) adminImport(c echo.Context) error {
 		existing[key] = dto.ID
 		imported++
 	}
+	moodsImported, moodsFailed := s.importMoods(ctx, moods)
 	return c.JSON(http.StatusOK, map[string]any{
 		"source":         source,
 		"total":          len(posts),
@@ -162,7 +166,32 @@ func (s *Server) adminImport(c echo.Context) error {
 		"failed":         failed,
 		"files_imported": filesImported,
 		"files_failed":   filesFailed,
+		"moods_imported": moodsImported,
+		"moods_failed":   moodsFailed,
 	})
+}
+
+// importMoods 恢复内容包里的每日心情；按日期 upsert，重复导入幂等。
+func (s *Server) importMoods(ctx context.Context, items []importer.Mood) (imported, failed int) {
+	if len(items) == 0 {
+		return 0, 0
+	}
+	userID := s.ownerID(ctx)
+	now := time.Now().Unix()
+	for _, item := range items {
+		if !mood.Valid(item.Mood) || !mood.ValidDate(item.Date) {
+			failed++
+			continue
+		}
+		if _, err := s.q.UpsertMood(ctx, repo.UpsertMoodParams{
+			UserID: userID, MoodDate: item.Date, Mood: item.Mood, CreatedAt: now, UpdatedAt: now,
+		}); err != nil {
+			failed++
+			continue
+		}
+		imported++
+	}
+	return imported, failed
 }
 
 // uploadOne 附件落库；外链附件（图床）只存 remote_url；视频封面写本地并回填。

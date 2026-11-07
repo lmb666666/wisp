@@ -203,3 +203,34 @@ func TestParseWispCapsuleValidation(t *testing.T) {
 		t.Fatalf("oversized post should fail, got %v", err)
 	}
 }
+
+func TestParseWispMoods(t *testing.T) {
+	post := []byte("---\nid: 01M\npublished_at: 1750000000\nvisibility: public\n---\n\nhello\n")
+	postPath := "posts/2026/10/01M.md"
+	moods := []byte(`- date: 2026-11-07
+  mood: calm
+- date: 2026-02-30
+  mood: tired
+- date: 2026-11-06
+  mood: nope
+`)
+
+	path := writeWispZip(t, "version: 1\n", map[string][]byte{postPath: post, "moods.yaml": moods})
+	result, err := ParseWispFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Posts) != 1 {
+		t.Fatalf("posts = %d", len(result.Posts))
+	}
+	if len(result.Moods) != 1 || result.Moods[0].Date != "2026-11-07" || result.Moods[0].Mood != "calm" {
+		t.Fatalf("moods = %+v（非法条目应跳过）", result.Moods)
+	}
+
+	// 旧内容包没有 moods.yaml：正常导入帖子，心情为空。
+	old := writeWispZip(t, "version: 1\n", map[string][]byte{postPath: post})
+	result, err = ParseWispFile(old)
+	if err != nil || len(result.Moods) != 0 || len(result.Posts) != 1 {
+		t.Fatalf("old capsule = %+v, err=%v", result, err)
+	}
+}
