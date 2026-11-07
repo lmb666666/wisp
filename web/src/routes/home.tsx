@@ -6,11 +6,13 @@ import { useTranslation } from "react-i18next"
 import { useMe } from "@/api/auth"
 import { splitTagFilter, type PostFilters } from "@/api/client"
 import { usePosts, useSearch as useSearchQuery } from "@/api/posts"
-import { activeFilterCount, FilterPanel } from "@/components/filter-panel"
-import { dayLabel, PostCard } from "@/components/post-card"
+import { FilterPanel } from "@/components/filter-panel"
+import { PostCard } from "@/components/post-card"
 import { PublishBox } from "@/components/publish-box"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { dayLabel } from "@/lib/dates"
+import { activeFilterCount } from "@/lib/filters"
 
 /** 时间线入口：有搜索词走结果页，否则时间线。 */
 export function Home() {

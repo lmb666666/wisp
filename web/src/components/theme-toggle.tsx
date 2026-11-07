@@ -3,25 +3,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-
-const STORAGE_KEY = "wisp-theme"
-
-export function currentTheme(): "light" | "dark" {
-  return document.documentElement.classList.contains("dark") ? "dark" : "light"
-}
-
-export function applyTheme(theme: "light" | "dark") {
-  const commit = () => {
-    document.documentElement.classList.toggle("dark", theme === "dark")
-    localStorage.setItem(STORAGE_KEY, theme)
-  }
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
-  const reduce =
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  if (doc.startViewTransition && !reduce) doc.startViewTransition(commit)
-  else commit()
-}
+import { applyTheme, currentTheme } from "@/lib/theme"
 
 /** 亮 / 暗切换（跟随 index.html 内联脚本初始化，无闪烁） */
 export function ThemeToggle() {
@@ -41,7 +23,9 @@ export function ThemeToggle() {
         applyTheme(next)
       }}
     >
-      <span className="transition-transform duration-300 group-hover:rotate-12">{theme === "dark" ? <Sun /> : <Moon />}</span>
+      <span className="transition-transform duration-300 group-hover:rotate-12">
+        {theme === "dark" ? <Sun /> : <Moon />}
+      </span>
     </Button>
   )
 }

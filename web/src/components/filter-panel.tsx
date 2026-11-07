@@ -17,14 +17,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 
-export function activeFilterCount(f: PostFilters): number {
-  let n = 0
-  if (f.from || f.to) n++
-  const tags = new Set(splitTagFilter(f.tags))
-  if (f.tag) tags.add(f.tag)
-  return n + tags.size
-}
-
 function dateInput(ts?: number): string {
   if (!ts) return ""
   const d = new Date(ts * 1000)
@@ -58,11 +50,7 @@ export function FilterPanel({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open && (
-        <FilterForm
-          filters={filters}
-          onApply={onApply}
-          onClose={() => onOpenChange(false)}
-        />
+        <FilterForm filters={filters} onApply={onApply} onClose={() => onOpenChange(false)} />
       )}
     </Dialog>
   )
@@ -191,7 +179,6 @@ function FilterForm({
             </label>
           </div>
         </div>
-
 
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">

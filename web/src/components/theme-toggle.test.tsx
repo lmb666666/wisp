@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { ThemeToggle, applyTheme } from "./theme-toggle"
+import { ThemeToggle } from "./theme-toggle"
+import { applyTheme } from "@/lib/theme"
 
 describe("ThemeToggle", () => {
   afterEach(() => {

@@ -19,7 +19,8 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": "warn",
+      // shadcn 生成的 button.tsx 与组件同文件导出 variants，属约定用法。
+      "react-refresh/only-export-components": ["warn", { allowExportNames: ["buttonVariants"] }],
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
     },
   },

@@ -21,7 +21,7 @@ import { api } from "@/api/client"
 import { useDeletePost, usePost, useUpdatePost } from "@/api/posts"
 import { BlockDialog, type BlockInput, type BlockKind } from "@/components/block-dialog"
 import { EditorToolbar } from "@/components/editor-toolbar"
-import { dayLabel, PostCard } from "@/components/post-card"
+import { PostCard } from "@/components/post-card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { dayLabel } from "@/lib/dates"
 
 const MarkdownEditor = lazy(() =>
   import("@/components/markdown-editor").then((m) => ({ default: m.MarkdownEditor })),

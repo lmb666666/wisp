@@ -306,16 +306,3 @@ function osmURL(loc: string): string {
   if (m) return `https://www.openstreetmap.org/?mlat=${m[1]}&mlon=${m[2]}#map=15/${m[1]}/${m[2]}`
   return "https://www.openstreetmap.org/search?query=" + encodeURIComponent(loc)
 }
-
-/** 按日分组的标题文案。 */
-function dayLabel(ts: number, t: (k: string, v?: Record<string, unknown>) => string): string {
-  const d = new Date(ts * 1000)
-  const now = new Date()
-  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const diffDays = Math.round((startOf(now) - startOf(d)) / 86400000)
-  if (diffDays === 0) return t("time.today")
-  if (diffDays === 1) return t("time.yesterday")
-  return t("time.date", { m: d.getMonth() + 1, d: d.getDate() })
-}
-
-export { dayLabel }

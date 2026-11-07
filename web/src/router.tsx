@@ -1,18 +1,11 @@
-import { useEffect } from "react"
 import {
-  Outlet,
   createRootRoute,
   createRoute,
   createRouter,
   lazyRouteComponent,
-  useRouterState,
 } from "@tanstack/react-router"
 
-import { useMe } from "@/api/auth"
-import { useOutboxFlusher } from "@/hooks/use-outbox-flusher"
-import { Header } from "@/components/header"
-import { Toaster } from "@/components/ui/sonner"
-import { InstallHints } from "@/components/install-hints"
+import { RootLayout } from "@/components/root-layout"
 import { Home } from "@/routes/home"
 import { Login } from "@/routes/login"
 import { SettingsLayout } from "@/routes/settings"
@@ -26,31 +19,6 @@ const TokensPage = lazyRouteComponent(() => import("@/routes/tokens"), "TokensPa
 const StoragePage = lazyRouteComponent(() => import("@/routes/storage"), "StoragePage")
 const WebhooksPage = lazyRouteComponent(() => import("@/routes/webhooks"), "WebhooksPage")
 const DataPage = lazyRouteComponent(() => import("@/routes/data"), "DataPage")
-
-/** 路由切换回到顶部（页面内容动画由各叶页面自己播放，避免布局重挂载）。 */
-function ScrollToTop() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [pathname])
-  return null
-}
-
-function RootLayout() {
-  const { data: me } = useMe()
-  useOutboxFlusher(!!me)
-  return (
-    <div className="bg-background min-h-dvh">
-      <Header />
-      <InstallHints />
-      <ScrollToTop />
-      <main className="wisp-main mx-auto w-full max-w-[720px] px-4">
-        <Outlet />
-      </main>
-      <Toaster />
-    </div>
-  )
-}
 
 const rootRoute = createRootRoute({ component: RootLayout })
 
