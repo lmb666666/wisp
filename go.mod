@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/buckket/go-blurhash v1.1.0
-	github.com/caarlos0/env/v11 v11.4.1
+	github.com/caarlos0/env/v11 v11.4.2
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/labstack/echo/v4 v4.16.2
 	github.com/minio/minio-go/v7 v7.4.1
