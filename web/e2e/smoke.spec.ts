@@ -8,6 +8,11 @@ import { deflateSync } from "node:zlib"
 const USERNAME = "liang"
 const PASSWORD = "password123"
 
+const pad2 = (n: number) => String(n).padStart(2, "0")
+const localDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+const todayKey = () => localDate(new Date())
+const daysAgoKey = (n: number) => localDate(new Date(Date.now() - n * 86400000))
+
 let seeded = false
 
 /** 生成尺寸随时间的 PNG，避免压缩后与历史上传秒传成同一条附件。 */
@@ -244,10 +249,7 @@ test("筛选：标签、URL 持久化与清除", async ({ page }) => {
   const tagB = `筛选乙${stamp}`
   const textA = `B1 甲 ${stamp}`
   const textB = `B1 乙 ${stamp}`
-  for (const input of [
-    { content_md: `${textA} #${tagA}` },
-    { content_md: `${textB} #${tagB}` },
-  ]) {
+  for (const input of [{ content_md: `${textA} #${tagA}` }, { content_md: `${textB} #${tagB}` }]) {
     const res = await page.request.post("/api/v1/posts", { data: input })
     expect(res.status()).toBe(201)
   }
@@ -501,4 +503,79 @@ test("时间线卡片不存在嵌套链接", async ({ page }) => {
   const article = page.locator("article").filter({ hasText: "嵌套链接检查" }).first()
   await expect(article).toBeVisible()
   await expect(article.locator("a a")).toHaveCount(0)
+})
+
+test("每日心情：记录、刷新保留、日期头与清除", async ({ page }) => {
+  await ensureLogin(page)
+  const yesterday = daysAgoKey(1)
+  const yesterdayPost = `E2E 昨天心情 ${Date.now()}`
+  const created = await page.request.post("/api/v1/posts", {
+    data: { content_md: yesterdayPost, published_at: Math.floor(Date.now() / 1000) - 86400 },
+  })
+  expect(created.status()).toBe(201)
+  const seededMood = await page.request.put(`/api/v1/moods/${yesterday}`, {
+    data: { mood: "tired" },
+  })
+  expect(seededMood.ok()).toBeTruthy()
+
+  await page.goto("/")
+  await expect(page.getByText("今天心情如何？")).toBeVisible()
+  await page.getByRole("button", { name: "平静", exact: true }).click()
+  await expect(page.getByText("今天 · 平静")).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByText("今天 · 平静")).toBeVisible()
+
+  // 昨天的日期头显示当天心情；时间线较长时滚动加载
+  const header = page.locator("h2").filter({ hasText: "昨天" }).first()
+  for (let i = 0; i < 6 && (await header.count()) === 0; i++) {
+    await page.mouse.wheel(0, 2500)
+    await page.waitForTimeout(250)
+  }
+  await expect(header).toContainText("疲惫")
+
+  await page.getByRole("button", { name: "开心", exact: true }).click()
+  await expect(page.getByText("今天 · 开心")).toBeVisible()
+  await page.getByRole("button", { name: "清除" }).click()
+  await expect(page.getByText("今天心情如何？")).toBeVisible()
+})
+
+test("访客看到最近心情但没有编辑入口", async ({ page, browser }) => {
+  await ensureLogin(page)
+  const res = await page.request.put(`/api/v1/moods/${todayKey()}`, {
+    data: { mood: "calm" },
+  })
+  expect(res.ok()).toBeTruthy()
+
+  const context = await browser.newContext({
+    baseURL: process.env.WISP_URL ?? "http://localhost:18099",
+    viewport: { width: 390, height: 844 },
+    locale: "zh-CN",
+    hasTouch: true,
+  })
+  const visitor = await context.newPage()
+  await visitor.goto("/")
+  await expect(visitor.getByText(/\d+ 月 \d+ 日 · 平静/)).toBeVisible()
+  await expect(visitor.getByText("今天心情如何？")).toHaveCount(0)
+  await expect(visitor.getByRole("button", { name: "平静", exact: true })).toHaveCount(0)
+
+  await visitor.goto("/stats?tab=mood")
+  await expect(visitor.getByText("点选日期可补记")).toHaveCount(0)
+  await expect(visitor.getByRole("tab", { name: "心情" })).toBeVisible()
+  await context.close()
+})
+
+test("统计页心情：年历、补记与分布", async ({ page }) => {
+  await ensureLogin(page)
+  await page.goto("/stats?tab=mood")
+  await expect(page.getByRole("tab", { name: "心情" })).toBeVisible()
+
+  const now = new Date()
+  const firstOfMonth = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`
+  const cell = page.locator(`[data-date="${firstOfMonth}"]`)
+  await expect(cell).toBeVisible()
+  await cell.click()
+  await page.getByRole("button", { name: "开心", exact: true }).click()
+  await expect(page.locator(`[data-date="${firstOfMonth}"][data-mood="happy"]`)).toHaveCount(1)
+  await expect(page.getByText("心情分布")).toBeVisible()
 })

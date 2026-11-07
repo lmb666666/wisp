@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wisp 全功能验收矩阵：覆盖全部端点与核心语义（72 项断言）。
+"""Wisp 全功能验收矩阵：覆盖全部端点与核心语义。
 
 用法：
   1. 起一个全新实例（必须空库）：
@@ -205,6 +205,34 @@ check("搜索无结果", code == 200 and len(b.get("items", [])) == 0)
 year = time.localtime().tm_year
 code, b = jreq("GET", f"/api/v1/stats/daily?year={year}", jar=owner)
 check("stats 热力图", code == 200 and isinstance(b.get("items"), list))
+
+# ===== 8.5 每日心情 =====
+today = time.strftime("%Y-%m-%d")
+past_mood = "2020-01-02"
+code, b = jreq("GET", f"/api/v1/moods?from={past_mood}&to={today}")
+check("心情游客读取", code == 200 and b.get("items") == [])
+code, _ = jreq("PUT", f"/api/v1/moods/{today}", {"mood": "calm"})
+check("心情游客写→401", code == 401)
+code, _ = jreq("PUT", f"/api/v1/moods/{today}", {"mood": "unknown"}, jar=owner)
+check("心情非法值→400", code == 400)
+code, b = jreq("PUT", f"/api/v1/moods/{today}", {"mood": "calm"}, jar=owner)
+check("心情写入", code == 200 and b.get("mood") == "calm", f"{code} {b}")
+code, b = jreq("PUT", f"/api/v1/moods/{today}", {"mood": "happy"}, jar=owner)
+check("心情同日覆盖", code == 200 and b.get("mood") == "happy")
+code, b = jreq("PUT", f"/api/v1/moods/{past_mood}", {"mood": "tired"}, jar=owner)
+check("心情补记历史", code == 200 and b.get("date") == past_mood)
+code, b = jreq("GET", f"/api/v1/moods?from={past_mood}&to={today}")
+check("心情区间升序", code == 200 and [i["date"] for i in b.get("items", [])] == [past_mood, today])
+code, b = jreq("GET", "/api/v1/moods/latest")
+check("心情 latest", code == 200 and b.get("date") == today and b.get("mood") == "happy")
+code, _ = jreq("PUT", f"/api/v1/moods/{today}", {"mood": "low"}, token=read_tok)
+check("心情 read PAT 写→403", code == 403)
+code, _ = jreq("GET", "/api/v1/moods?from=2000-01-01&to=2026-01-01")
+check("心情区间超限→400", code == 400)
+code, _ = jreq("DELETE", f"/api/v1/moods/{today}", jar=owner)
+check("心情删除", code == 204)
+code, _ = jreq("DELETE", f"/api/v1/moods/{today}", jar=owner)
+check("心情删除幂等", code == 204)
 
 # ===== 9. 标签 =====
 code, b = jreq("GET", "/api/v1/tags")
