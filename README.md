@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/lmb666666/wisp/actions/workflows/ci.yml"><img src="https://github.com/lmb666666/wisp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/status-v0.3.2-c96a35" alt="status">
+  <img src="https://img.shields.io/badge/status-v0.4.0-c96a35" alt="status">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
   <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
   <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19">
@@ -38,6 +38,7 @@ Wisp 是一款单作者、自托管的轻量「说说 / 朋友圈」。没有推
 - Markdown 编辑器（TipTap），粘贴 / 拖拽图片自动压缩上传
 - 草稿、离线队列、PWA 分享菜单直达发布
 - 时间线按日分组、图片九宫格、blurhash 占位、lightbox
+- 每日心情：一天一条 5 档记录，首页一键打卡、日期头展示、年度心情历
 - 标签聚合、全文搜索、日期 × 多标签组合筛选
 - 浅色 / 深色主题，中英文界面，Passkey 登录
 
@@ -85,7 +86,7 @@ docker compose up -d --build
 从 [Releases](https://github.com/lmb666666/wisp/releases) 下载对应平台压缩包：
 
 ```bash
-tar -xzf wisp_0.3.2_linux_amd64.tar.gz
+tar -xzf wisp_0.4.0_linux_amd64.tar.gz
 WISP_PUBLIC_URL=https://wisp.example.com ./wisp
 ```
 
