@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/lmb666666/wisp/actions/workflows/ci.yml"><img src="https://github.com/lmb666666/wisp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/status-v0.3.1-c96a35" alt="status">
+  <img src="https://img.shields.io/badge/status-v0.3.2-c96a35" alt="status">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
   <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
   <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19">
@@ -85,7 +85,7 @@ docker compose up -d --build
 从 [Releases](https://github.com/lmb666666/wisp/releases) 下载对应平台压缩包：
 
 ```bash
-tar -xzf wisp_0.3.1_linux_amd64.tar.gz
+tar -xzf wisp_0.3.2_linux_amd64.tar.gz
 WISP_PUBLIC_URL=https://wisp.example.com ./wisp
 ```
 

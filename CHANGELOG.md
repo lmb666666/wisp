@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.2] - 2026-11-07
+
+### 修复
+
+- **并发读**：SQLite 连接池从单连接提升到 8 条（WAL 多读单写），写事务改用 `BEGIN IMMEDIATE`；长事务、导入、标签合并与备份的 `VACUUM INTO` 不再阻塞全站读请求。无 `_txlock=immediate` 时并发「先读后写」事务会直接 `SQLITE_BUSY`，已加回归测试锁定
+- **压测脚本**：移除 v0.3.0 已删除的 `Visibility` 字段，`make load` 恢复可编译
+- **测试稳定性**：音乐卡异步预取在 `-race` 下提前断言标题/封面的竞态
+
+### 测试与维护
+
+- 新增 service / media / webhook / auth / capsule / util 单测与集成测试，Go 测试数 51 → 90；service 覆盖率 7.5% → 67.4%，webhook 7.4% → 83.8%，media 14.8% → 48.3%，auth 3.3% → 33.5%，capsule 0% → 58.7%
+- 前端补充 geo / filters / dates / outbox / client 单测，用例 7 → 29；Fast Refresh 警告清零（helper 拆分到 `lib/`，`buttonVariants` 按 shadcn 约定放行）
+- 本地运行时目录与历史备份权限收紧为 0700/0600（代码此前已处理，此处同步磁盘现状）
+
+### 兼容性
+
+- 无 schema 变更、无 API 变更；可直接替换二进制或镜像升级
+
 ## [0.3.1] - 2026-11-05
 
 ### 修复
