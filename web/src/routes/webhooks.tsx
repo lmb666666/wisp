@@ -18,7 +18,13 @@ interface WebhookRow {
   created_at: number
 }
 
-const EVENTS = ["post.created", "post.updated", "post.deleted"] as const
+const EVENTS = [
+  "post.created",
+  "post.updated",
+  "post.deleted",
+  "mood.updated",
+  "mood.deleted",
+] as const
 
 /** 设置 · 集成：Meting 音乐接口、Webhook。 */
 export function WebhooksPage() {
@@ -75,7 +81,9 @@ function MetingForm({ initial }: { initial: string }) {
       <h2 className="flex items-center gap-1.5 wisp-section-title">
         <Music4 className="size-4" /> {t("settings.metingTitle")}
       </h2>
-      <p className="text-muted-foreground mt-1 mb-2 text-xs leading-relaxed">{t("settings.metingHint")}</p>
+      <p className="text-muted-foreground mt-1 mb-2 text-xs leading-relaxed">
+        {t("settings.metingHint")}
+      </p>
       <pre className="bg-muted/60 text-muted-foreground mb-3 rounded-lg p-2.5 text-[11px] leading-relaxed whitespace-pre-wrap break-all">
         {t("settings.metingExample")}
       </pre>
@@ -147,7 +155,9 @@ function WebhookCard() {
       <h2 className="flex items-center gap-1.5 wisp-section-title">
         <Webhook className="size-4" /> {t("webhooks.title")}
       </h2>
-      <p className="text-muted-foreground mt-1 mb-3 text-xs leading-relaxed">{t("webhooks.hint")}</p>
+      <p className="text-muted-foreground mt-1 mb-3 text-xs leading-relaxed">
+        {t("webhooks.hint")}
+      </p>
 
       <form onSubmit={create} className="space-y-3">
         <div className="space-y-1.5">
@@ -163,13 +173,21 @@ function WebhookCard() {
         <div className="flex flex-wrap items-center gap-4">
           <Label>{t("webhooks.events")}</Label>
           {EVENTS.map((e) => (
-            <label key={e} className="text-muted-foreground flex cursor-pointer items-center gap-2 text-sm">
+            <label
+              key={e}
+              className="text-muted-foreground flex cursor-pointer items-center gap-2 text-sm"
+            >
               <Checkbox checked={selected.includes(e)} onCheckedChange={() => toggleEvent(e)} />
               <code className="text-xs">{e}</code>
             </label>
           ))}
         </div>
-        <Button type="submit" size="sm" className="rounded-lg" disabled={busy || !url.trim() || selected.length === 0}>
+        <Button
+          type="submit"
+          size="sm"
+          className="rounded-lg"
+          disabled={busy || !url.trim() || selected.length === 0}
+        >
           {busy ? t("webhooks.creating") : t("webhooks.create")}
         </Button>
         {secret && (
@@ -212,4 +230,3 @@ function WebhookCard() {
     </section>
   )
 }
-

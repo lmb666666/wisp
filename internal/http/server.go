@@ -47,6 +47,7 @@ type Server struct {
 	localStore *media.LocalStorage
 	passkeys   *auth.WebAuthnService
 	backup     *backup.Service
+	hooks      *webhook.Dispatcher
 	startedAt  time.Time
 	webFS      fs.FS
 	indexHTML  string
@@ -80,6 +81,7 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 		selector:   deps.Selector,
 		localStore: deps.LocalStore,
 		backup:     deps.Backup,
+		hooks:      deps.Webhooks,
 		startedAt:  time.Now(),
 	}
 	if s.backup == nil && deps.DB != nil && deps.Querier != nil {
@@ -212,6 +214,11 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 	api.PATCH("/posts/:id", s.updatePost, s.resolveAuth, s.requireWrite)
 	api.DELETE("/posts/:id", s.deletePost, s.resolveAuth, s.requireWrite)
 	api.GET("/search", s.searchPosts, s.resolveAuth)
+
+	api.GET("/moods", s.listMoods)
+	api.GET("/moods/latest", s.latestMood)
+	api.PUT("/moods/:date", s.setMood, s.resolveAuth, s.requireWrite)
+	api.DELETE("/moods/:date", s.deleteMood, s.resolveAuth, s.requireWrite)
 
 	api.GET("/tags", s.listTags, s.resolveAuth)
 	api.PATCH("/tags/:id", s.renameTag, s.requireUser)

@@ -28,6 +28,10 @@ PAT 在「设置 → API 令牌」创建。管理端点（导入、备份、媒�
 | `PATCH` | `/posts/{id}` | 编辑（write） |
 | `DELETE` | `/posts/{id}` | 删除（write） |
 | `GET` | `/search?q=` | 全文搜索（≥3 字符 FTS5，短词 LIKE） |
+| `GET` | `/moods?from=&to=` | 每日心情区间（公开，跨度 ≤ 10 年） |
+| `GET` | `/moods/latest` | 最近一条心情（公开） |
+| `PUT` | `/moods/{date}` | 记录/覆盖某天心情（write，可补记） |
+| `DELETE` | `/moods/{date}` | 清除某天心情（write，幂等） |
 | `GET` | `/tags` | 标签聚合（仅统计有帖子的标签） |
 | `PATCH` | `/tags/{id}` | 重命名（会话） |
 | `POST` | `/tags/merge` | 合并（会话） |
@@ -74,6 +78,23 @@ curl -X POST https://wisp.example.com/api/v1/posts \
 ```
 
 `blocks` 支持 `music` / `github` / `website` / `video` / `location`，最多 4 个；服务端会清洗非法 URL 与展示字段。
+
+## 每日心情
+
+一天一条，`date` 为作者本地日期 `YYYY-MM-DD`。心情固定 5 档：`happy`（开心）/ `calm`（平静）/ `okay`（一般）/ `tired`（疲惫）/ `low`（低落）。
+
+读取公开，写入需要会话或 `read,write` PAT；历史日期可补记，最晚到服务端 UTC 明天。同一天重复 `PUT` 覆盖旧值。
+
+```bash
+curl -X PUT https://wisp.example.com/api/v1/moods/2026-11-07 \
+  -H "Authorization: Bearer wpat_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"mood":"calm"}'
+
+curl "https://wisp.example.com/api/v1/moods?from=2026-01-01&to=2026-12-31"
+```
+
+响应：`{"items":[{"date":"2026-11-07","mood":"calm"}]}`。Webhook 事件为 `mood.updated` / `mood.deleted`。
 
 ## 上传
 

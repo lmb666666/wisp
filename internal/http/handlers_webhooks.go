@@ -25,11 +25,13 @@ var validWebhookEvents = map[string]bool{
 	"post.created": true,
 	"post.updated": true,
 	"post.deleted": true,
+	"mood.updated": true,
+	"mood.deleted": true,
 }
 
 type createWebhookReq struct {
 	Url    string `json:"url"`
-	Events string `json:"events"` // 逗号分隔：post.created,post.updated,post.deleted
+	Events string `json:"events"` // 逗号分隔：post.created,post.updated,post.deleted,mood.updated,mood.deleted
 }
 
 // listWebhooks GET /admin/webhooks（secret 脱敏）。

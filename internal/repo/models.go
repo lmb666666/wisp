@@ -36,6 +36,14 @@ type Attachment struct {
 	ThumbRemoteUrl string
 }
 
+type DailyMood struct {
+	UserID    int64
+	MoodDate  string
+	Mood      string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type IdempotencyKey struct {
 	Key       string
 	PostID    string

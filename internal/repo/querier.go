@@ -29,6 +29,7 @@ type Querier interface {
 	DailyCounts(ctx context.Context, arg DailyCountsParams) ([]DailyCountsRow, error)
 	DeleteAttachment(ctx context.Context, id string) error
 	DeleteExpiredSessions(ctx context.Context, expiresAt int64) error
+	DeleteMood(ctx context.Context, arg DeleteMoodParams) (int64, error)
 	DeleteOldIdempotencyKeys(ctx context.Context, createdAt int64) error
 	DeletePasskey(ctx context.Context, id string) error
 	DeletePost(ctx context.Context, id string) error
@@ -54,10 +55,13 @@ type Querier interface {
 	GetUserBySession(ctx context.Context, arg GetUserBySessionParams) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	InsertIdempotencyKeyIfAbsent(ctx context.Context, arg InsertIdempotencyKeyIfAbsentParams) (int64, error)
+	LatestMood(ctx context.Context, userID int64) (LatestMoodRow, error)
 	LinkPostTag(ctx context.Context, arg LinkPostTagParams) error
+	ListAllMoods(ctx context.Context) ([]ListAllMoodsRow, error)
 	ListAttachmentOnlyFingerprints(ctx context.Context) ([]ListAttachmentOnlyFingerprintsRow, error)
 	ListFilteredPosts(ctx context.Context, arg ListFilteredPostsParams) ([]Post, error)
 	ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMediaRow, error)
+	ListMoods(ctx context.Context, arg ListMoodsParams) ([]ListMoodsRow, error)
 	ListPasskeys(ctx context.Context) ([]Passkey, error)
 	ListPasskeysByUser(ctx context.Context, userID int64) ([]Passkey, error)
 	ListPostAttachments(ctx context.Context, postID sql.NullString) ([]Attachment, error)
@@ -85,6 +89,7 @@ type Querier interface {
 	UpdateUserDisplayName(ctx context.Context, arg UpdateUserDisplayNameParams) (User, error)
 	UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error
 	UpsertLinkPreview(ctx context.Context, arg UpsertLinkPreviewParams) error
+	UpsertMood(ctx context.Context, arg UpsertMoodParams) (DailyMood, error)
 	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error
 	UpsertTag(ctx context.Context, name string) (Tag, error)
 }

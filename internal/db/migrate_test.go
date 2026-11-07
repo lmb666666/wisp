@@ -44,7 +44,7 @@ func TestMigrateFreshDatabase(t *testing.T) {
 	for _, table := range []string{
 		"users", "sessions", "posts", "attachments", "tags",
 		"post_tags", "settings", "link_previews", "api_tokens",
-		"idempotency_keys", "posts_fts",
+		"idempotency_keys", "posts_fts", "daily_moods",
 	} {
 		var n int
 		if err := database.QueryRow(

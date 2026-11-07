@@ -5,7 +5,7 @@ package http
 const openAPISpec = `openapi: 3.0.3
 info:
   title: Wisp API
-  version: "0.3.2"
+  version: "0.4.0"
   description: |
     Wisp 自托管说说 API。认证方式二选一：
     1. 会话 Cookie（Web UI 使用，HttpOnly）；
@@ -193,6 +193,39 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer } }
       responses: { "200": { description: OK } }
+  /moods:
+    get:
+      security: []
+      summary: 每日心情区间（公开）
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date }, description: 跨度不超过 10 年 }
+      responses: { "200": { description: OK }, "400": { description: 参数错误 } }
+  /moods/latest:
+    get:
+      security: []
+      summary: 最近一条心情（公开）
+      responses: { "200": { description: OK }, "404": { description: 没有记录 } }
+  /moods/{date}:
+    put:
+      summary: 记录或覆盖某天心情（需要 write；支持补记历史日期）
+      parameters:
+        - { name: date, in: path, required: true, schema: { type: string, format: date } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mood]
+              properties:
+                mood: { type: string, enum: [happy, calm, okay, tired, low] }
+      responses: { "200": { description: OK }, "400": { description: 参数错误 }, "403": { description: 作用域不足 } }
+    delete:
+      summary: 清除某天心情（需要 write）
+      parameters:
+        - { name: date, in: path, required: true, schema: { type: string, format: date } }
+      responses: { "204": { description: OK }, "400": { description: 参数错误 }, "403": { description: 作用域不足 } }
   /tags:
     get:
       security: []
