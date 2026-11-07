@@ -81,7 +81,6 @@ func TestLoad10k(t *testing.T) {
 	for i := 0; i < total; i++ {
 		_, err := postSvc.Create(t.Context(), 1, service.CreateParams{
 			ContentMD:   fmt.Sprintf("第 %d 条压测数据 **加粗** #压测 #批量 标签内容长度适度即可 %d", i, i),
-			Visibility:  "public",
 			PublishedAt: time.Now().Unix() - int64(total-i),
 			Source:      "load",
 		})
