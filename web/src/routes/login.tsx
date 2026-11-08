@@ -13,7 +13,6 @@ import {
   useInit,
   useLogin,
 } from "@/api/auth"
-import { AppLogo } from "@/components/app-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,12 +31,9 @@ function AuthShell({ title, hint, children }: { title: string; hint?: string; ch
   return (
     <div className="wisp-page wisp-auth-bg flex min-h-[calc(100dvh-8rem)] items-center justify-center py-8">
       <div className="wisp-card w-full max-w-sm p-7" style={{ boxShadow: "var(--shadow-lift)" }}>
-        <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <AppLogo className="size-11" />
-          <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">{title}</h1>
-            {hint && <p className="text-muted-foreground mt-1 text-sm">{hint}</p>}
-          </div>
+        <div className="mb-5 text-center">
+          <h1 className="font-display text-2xl font-semibold tracking-tight">{title}</h1>
+          {hint && <p className="text-muted-foreground mt-1 text-sm">{hint}</p>}
         </div>
         {children}
       </div>

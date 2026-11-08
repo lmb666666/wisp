@@ -263,7 +263,7 @@ func (s *Server) spaIndex(c echo.Context) error {
 	// index.html 不能被启发式缓存驻留，否则发版后旧资产路径 404
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	extra := `<meta property="og:type" content="website"/>` + s.defaultOGImage()
-	page := injectOG(s.indexHTML, "Wisp", "轻轻说出，牢牢拥有。自托管的轻量说说。", extra)
+	page := injectOG(s.indexHTML, "Wisp", "记录生活中的小确幸。自托管的轻量说说。", extra)
 	return c.HTML(http.StatusOK, page)
 }
 

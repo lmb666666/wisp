@@ -32,7 +32,7 @@ export default defineConfig({
       manifest: {
         name: "Wisp",
         short_name: "Wisp",
-        description: "自托管轻量说说：手机上 3 秒发出一条带图的想法",
+        description: "记录生活中的小确幸：自托管的轻量说说",
         lang: "zh-CN",
         display: "standalone",
         start_url: "/",

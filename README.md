@@ -1,77 +1,57 @@
-<p align="center">
-  <img src="docs/assets/banner.png" alt="Wisp — 轻轻说出，牢牢拥有" width="100%">
-</p>
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/wordmark-white.svg">
+  <img src="docs/assets/wordmark.svg" width="190" alt="wisp">
+</picture>
+
+**记录生活中的小确幸。**
+
+自托管的轻量「说说 / 朋友圈」。3 秒发布、每日心情、图片与卡片、PWA 离线；数据留在自己的服务器。
+
+[![CI](https://github.com/lmb666666/wisp/actions/workflows/ci.yml/badge.svg)](https://github.com/lmb666666/wisp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lmb666666/wisp?color=c96a35)](https://github.com/lmb666666/wisp/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
+[![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)](web/package.json)
+[![Stars](https://img.shields.io/github/stars/lmb666666/wisp?style=social)](https://github.com/lmb666666/wisp/stargazers)
+
+[快速开始](#快速开始) · [部署](docs/DEPLOY.md) · [API](docs/API.md) · [迁移](docs/MIGRATION.md) · [更新日志](CHANGELOG.md) · [Releases](https://github.com/lmb666666/wisp/releases)
+
+</div>
 
 <p align="center">
-  <a href="https://github.com/lmb666666/wisp/actions/workflows/ci.yml"><img src="https://github.com/lmb666666/wisp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/status-v0.4.0-c96a35" alt="status">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
-  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
-  <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19">
+  <img src="docs/assets/banner.png" width="100%" alt="Wisp — 记录生活中的小确幸">
 </p>
 
-<h3 align="center">把自己的「说说」放回自己的服务器。</h3>
+## 截图
 
-<p align="center">
-  <strong>3 秒发布</strong> · 每日心情 · 单二进制 · 一个 data 目录 · PWA 离线 · API-first · MIT
-</p>
-
-Wisp 是一款单作者、自托管的轻量「说说 / 朋友圈」。没有推荐算法，没有评论区，也没有把数据交给平台的理由。打开网页或安装成 PWA，像发朋友圈一样记录一条想法；图片、音乐、GitHub 仓库、网站和位置会收成干净的卡片。每天还可以用一档心情标记今天，所有内容都留在你自己的服务器上。
-
-<p align="center">
-  <img src="docs/assets/screenshots/home-light.png" width="45%" alt="时间线 · 浅色">
-  <img src="docs/assets/screenshots/home-dark.png" width="45%" alt="时间线 · 深色">
-</p>
-<p align="center">
-  <img src="docs/assets/screenshots/mood.png" width="45%" alt="每日心情 · 月度补记与年度概览">
-  <img src="docs/assets/screenshots/post-detail.png" width="45%" alt="扩展卡片">
-</p>
+<table width="100%">
+  <tr>
+    <td align="center"><img src="docs/assets/screenshots/home-light.png" width="100%" alt="时间线 · 浅色"><br>时间线 · 浅色</td>
+    <td align="center"><img src="docs/assets/screenshots/home-dark.png" width="100%" alt="时间线 · 深色"><br>时间线 · 深色</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshots/mood.png" width="100%" alt="每日心情 · 月度补记与年度概览"><br>每日心情 · 月度补记与年度概览</td>
+    <td align="center"><img src="docs/assets/screenshots/post-detail.png" width="100%" alt="扩展卡片"><br>扩展卡片</td>
+  </tr>
+</table>
 
 ## 为什么是 Wisp
 
-- **像发朋友圈一样轻。** 移动端优先，服务端渲染 Markdown；草稿自动留在浏览器，离线也能写完，联网后自动补发。每天还能顺手记录一档心情。
-- **数据真的属于你。** SQLite 单文件 + 本地媒体目录；内容包（含原图、卡片与心情）可导出，定时数据库快照和媒体库清理内置。
-- **一个二进制就够。** 前端通过 `go:embed` 打进 Go 服务，部署不需要 Node、反向代理也能先跑起来。
-- **少即是多。** 单作者、无评论、无多用户、无联邦。把「记录」这件事做好，而不是把设置页塞满。
-- **对开发者友好。** REST API、作用域 PAT、OpenAPI、RSS、Webhook 和官方 CLI 都是一等能力；心情同样有 API。
+- **轻记录。** 移动端优先，服务端渲染 Markdown；草稿留在浏览器，离线也能写完，联网后自动补发。
+- **每日心情。** 一天一条 5 档心情，首页一键记录；日期头、月度补记和年度概览帮你回看情绪。
+- **数据自持。** SQLite 单文件 + 本地媒体目录；内容包（含原图、卡片与心情）可导出，定时快照和媒体清理内置。
+- **单二进制。** 前端通过 `go:embed` 打进 Go 服务，部署不需要 Node、反向代理也能先跑起来。
+- **开放。** REST API、作用域 PAT、OpenAPI、RSS、Webhook 和官方 CLI 都是一等能力。
 
 ## 功能
 
-**写作与浏览**
-- Markdown 编辑器（TipTap），粘贴 / 拖拽图片自动压缩上传
-- 草稿、离线队列、PWA 分享菜单直达发布
-- 时间线按日分组、图片九宫格、blurhash 占位、lightbox
-- 每日心情：一天一条 5 档，首页一键记录，日期头回看，访客可见带日期的最近心情
-- 统计：概览（站点 + 今年心情）/ 动态（发布热力图 + 归档）/ 心情（月度补记 + 年度概览）/ 标签
-- 标签聚合、全文搜索、日期 × 多标签组合筛选
-- 浅色 / 深色主题，中英文界面，Passkey 登录
-
-**媒体与扩展卡片**
-- 图片 / 视频 / 音频附件；服务端缩略图、视频封面、SHA256 秒传
-- 存储驱动：本地 / S3 兼容 / Lsky Pro，可开启本地镜像
-- 音乐、GitHub、网站、视频、位置卡片；视频与地图点击后才加载，尊重隐私
-- 位置卡支持坐标、Nominatim 搜索 / 反查（可选）与 OSM 地图
-
-**整理与运维**
-- 标签重命名、合并、删除；媒体库筛选、占用统计、无主文件清理
-- 内容包（Wisp Capsule）导出 / 导入，带原图、扩展卡片与心情
-- 自动数据库备份（默认每日一份、保留 7 份）、站点概览、Webhook 通知
-- 迁移前自动快照；从 Memos / Moments / Ech0 / Wisp 导入
-
-**开放能力**
-- 完整 REST API；`read` / `read,write` 作用域 PAT
-- OpenAPI 描述与 Swagger UI（`WISP_ENABLE_SWAGGER=true`）
-- RSS 2.0 全量与按标签订阅；官方 `wisp-cli` 随 release 分发
-
-## 每日心情
-
-一天一条，固定 5 档：**开心 / 平静 / 一般 / 疲惫 / 低落**。
-
-- 首页一键记录，改 / 清即时生效，失败自动回滚
-- 时间线日期头显示当天心情；今天由顶部心情条承担，避免重复
-- 统计页「心情」可按月补记、查看年度概览与分布
-- 访客看到带日期的「最近心情」，不会把跨时区日期误称为「今天」
-- 通过 API、Webhook 与内容包和站点数据一起流转
+- **写作与浏览**：Markdown 编辑器（TipTap）、粘贴 / 拖拽图片自动压缩、草稿与离线队列、PWA 分享直达发布、时间线按日分组、图片九宫格、blurhash、lightbox、标签聚合、全文搜索、日期 × 多标签筛选、浅色 / 深色、中英文与 Passkey。
+- **每日心情**：固定 5 档（开心 / 平静 / 一般 / 疲惫 / 低落），首页心情条、日期头展示、访客可见的带日期「最近心情」、统计页月度补记与年度概览。
+- **媒体与卡片**：图片 / 视频 / 音频附件、服务端缩略图与视频封面、SHA256 秒传；本地 / S3 兼容 / Lsky Pro 存储与本地镜像；音乐、GitHub、网站、视频、位置卡片，视频与地图点击后才加载。
+- **整理与运维**：标签重命名 / 合并 / 删除、媒体库筛选与清理、Wisp Capsule 导出 / 导入、自动数据库备份、站点概览、Webhook；迁移前自动快照，支持从 Memos / Moments / Ech0 / Wisp 导入。
+- **开放能力**：完整 REST API、`read` / `read,write` 作用域 PAT、OpenAPI 与 Swagger UI、RSS 2.0、官方 `wisp-cli`。
 
 ## 快速开始
 
@@ -216,15 +196,15 @@ python3 scripts/full_matrix.py                         # 全功能验收矩阵�
 | [SECURITY.md](SECURITY.md) | 安全策略与私下报告方式 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本记录 |
 
-## 安全
-
-发现安全问题请通过 GitHub 的 **Security → Advisories** 私下报告，不要开公开 Issue。细节见 [SECURITY.md](SECURITY.md)。
-
-Wisp 面向**单作者**场景：没有多用户、角色权限、评论或联邦。请不要把它当作多人社区平台使用。
-
 ## 参与贡献
 
 欢迎 Issue、文档修正和代码贡献。开始前请读 [CONTRIBUTING.md](CONTRIBUTING.md)；提交代码即表示同意以 MIT 许可证发布。
+
+Wisp 面向**单作者**场景：没有多用户、角色权限、评论或联邦。请不要把它当作多人社区平台使用。
+
+## 安全
+
+发现安全问题请通过 GitHub 的 **Security → Advisories** 私下报告，不要开公开 Issue。细节见 [SECURITY.md](SECURITY.md)。
 
 ## 许可证
 

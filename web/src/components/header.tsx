@@ -3,9 +3,9 @@ import { BarChart3, Languages, LogIn, LogOut, Settings2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { useLogout, useMe } from "@/api/auth"
-import { AppLogo } from "@/components/app-logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
+import { Wordmark } from "@/components/wordmark"
 import { cn } from "@/lib/utils"
 import { toggleLanguage } from "@/i18n"
 
@@ -26,9 +26,13 @@ export function Header() {
   return (
     <header className="wisp-header border-border/70 bg-background/85 sticky top-0 z-20 border-b backdrop-blur-md">
       <div className="mx-auto flex h-14 w-full max-w-[720px] items-center gap-2 px-4">
-        <Link to="/" className="mr-1 flex items-center gap-2 rounded-lg py-1">
-          <AppLogo className="size-7" />
-          <span className="font-display text-[17px] font-semibold tracking-tight">Wisp</span>
+        <Link
+          to="/"
+          aria-label="Wisp"
+          title="Wisp"
+          className="mr-1 flex items-center rounded-lg py-1"
+        >
+          <Wordmark className="h-8 w-auto" />
         </Link>
 
         <nav className="ml-auto flex items-center gap-0.5">
