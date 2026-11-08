@@ -83,7 +83,7 @@ curl -X POST https://wisp.example.com/api/v1/posts \
 
 一天一条，`date` 为作者本地日期 `YYYY-MM-DD`。心情固定 5 档：`happy`（开心）/ `calm`（平静）/ `okay`（一般）/ `tired`（疲惫）/ `low`（低落）。
 
-读取公开，写入需要会话或 `read,write` PAT；历史日期可补记，最晚到服务端 UTC 明天。同一天重复 `PUT` 覆盖旧值。
+读取公开，写入需要会话或 `read,write` PAT；历史日期可补记，最晚到服务端 UTC 明天。同一天重复 `PUT` 覆盖旧值。`GET /moods/latest` 返回最近一条，没有记录时返回 `404`。
 
 ```bash
 curl -X PUT https://wisp.example.com/api/v1/moods/2026-11-07 \
