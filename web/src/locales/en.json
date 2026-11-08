@@ -254,6 +254,7 @@
     "configuredWebhooks": "Configured webhooks",
     "noWebhooks": "No webhooks configured yet.",
     "mediaImported": "{{n}} media files",
+    "moodsImported": "{{n}} moods",
     "registerPasskey": "Register this device's passkey",
     "profileTitle": "Profile",
     "displayName": "Display name",
@@ -424,11 +425,14 @@
     "tired": "Tired",
     "low": "Low",
     "tab": "Mood",
-    "recordedDays": "{{n}} days recorded",
+    "recordedDays_one": "{{count}} day recorded",
+    "recordedDays_other": "{{count}} days recorded",
     "empty": "No moods recorded this year.",
     "backfillHint": "Tap a day to backfill",
     "distribution": "Mood breakdown",
     "pickDate": "Mood for {{date}}",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
     "loading": "Loading…",
     "loadFailed": "Couldn't load moods."
   }

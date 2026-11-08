@@ -5,7 +5,7 @@ import { api } from "@/api/client"
 import { todayKey } from "@/lib/dates"
 import type { Mood, MoodEntry } from "@/lib/moods"
 
-export interface MoodListResp {
+interface MoodListResp {
   items: MoodEntry[]
 }
 
@@ -43,7 +43,7 @@ export function useLatestMood(enabled = true) {
 export function useTodayMood() {
   const today = todayKey()
   const query = useMoods(today, today)
-  return { today, mood: query.data?.items[0]?.mood, isLoading: query.isLoading }
+  return { today, mood: query.data?.items[0]?.mood }
 }
 
 export function useSetMood() {

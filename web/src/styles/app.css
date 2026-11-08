@@ -158,9 +158,7 @@
     aspect-ratio: 1;
     border-radius: 3px;
     background: color-mix(in oklch, var(--muted-foreground) 10%, transparent);
-    transition:
-      transform 150ms var(--ease-out-soft),
-      background-color 150ms ease;
+    transition: background-color 150ms ease;
   }
   .mood-cell[data-mood] {
     background: color-mix(in oklch, var(--mood-color) 70%, var(--card));
@@ -168,22 +166,13 @@
   .mood-day[data-mood] {
     background: color-mix(in oklch, var(--mood-color) 14%, var(--card));
   }
-  .mood-cell[aria-pressed="true"] {
+  .mood-day[aria-pressed="true"] {
     outline: 2px solid var(--ring);
     outline-offset: 1px;
   }
-  @media (hover: hover) {
-    .mood-cell:not(:disabled):hover {
-      transform: scale(1.15);
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
-    .mood-cell,
-    .mood-option {
+    .mood-cell {
       transition: none;
-    }
-    .mood-cell:not(:disabled):hover {
-      transform: none;
     }
   }
   .wisp-card-interactive {

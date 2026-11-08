@@ -254,6 +254,7 @@
     "configuredWebhooks": "已配置的 Webhook",
     "noWebhooks": "还没有配置 Webhook。",
     "mediaImported": "媒体 {{n}} 个",
+    "moodsImported": "心情 {{n}} 条",
     "registerPasskey": "注册本设备的 Passkey",
     "profileTitle": "个人资料",
     "displayName": "昵称",
@@ -424,11 +425,13 @@
     "tired": "疲惫",
     "low": "低落",
     "tab": "心情",
-    "recordedDays": "记录 {{n}} 天",
+    "recordedDays": "记录 {{count}} 天",
     "empty": "今年还没有心情记录",
     "backfillHint": "点选日期可补记",
     "distribution": "心情分布",
     "pickDate": "选择 {{date}} 的心情",
+    "prevMonth": "上个月",
+    "nextMonth": "下个月",
     "loading": "加载中…",
     "loadFailed": "心情加载失败"
   }

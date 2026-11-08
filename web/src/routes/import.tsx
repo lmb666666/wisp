@@ -43,7 +43,9 @@ export function ImportSection() {
           imported: data.imported,
           skipped: data.skipped,
           failed: data.failed,
-        }) + (data.files_imported ? ` · ${t("settings.mediaImported", { n: data.files_imported })}` : "")
+        }) +
+        (data.files_imported ? ` · ${t("settings.mediaImported", { n: data.files_imported })}` : "") +
+        (data.moods_imported ? ` · ${t("settings.moodsImported", { n: data.moods_imported })}` : "")
       setResult(summary)
       toast.success(summary)
     } catch (err) {

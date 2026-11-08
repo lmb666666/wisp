@@ -9,6 +9,7 @@ import type { Mood } from "@/lib/moods"
 /** 首页心情条：一次点击即保存，失败回滚。 */
 export function MoodBar() {
   const { today, mood } = useTodayMood()
+  // key 随保存值变化重新挂载内层：外部值变化时重置本地选择，无需 effect 同步。
   return <MoodBarInner key={`${today}:${mood ?? "none"}`} today={today} saved={mood} />
 }
 

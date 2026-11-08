@@ -11,6 +11,9 @@ import { pad2, todayKey } from "@/lib/dates"
 import { countMoods, moodByDate, MOODS, type Mood } from "@/lib/moods"
 import { cn } from "@/lib/utils"
 
+/** 与 API 的写入下限保持一致，避免年份导航到无意义的更早年份。 */
+const MIN_YEAR = 2000
+
 /** 统计页「心情」：月度大格补记 + 年度概览 + 分布。 */
 export function MoodTab({ isOwner }: { isOwner: boolean }) {
   const { t } = useTranslation()
@@ -30,25 +33,41 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
 
   const changeYear = (delta: number) => {
     const next = year + delta
-    if (next > currentYear) return
+    if (next > currentYear || next < MIN_YEAR) return
     setYear(next)
     if (next === currentYear && month > currentMonth) setMonth(currentMonth)
     setSelected(null)
   }
 
   const changeMonth = (nextYear: number, nextMonth: number) => {
+    if (
+      nextYear > currentYear ||
+      nextYear < MIN_YEAR ||
+      (nextYear === currentYear && nextMonth > currentMonth)
+    ) {
+      return
+    }
     setYear(nextYear)
     setMonth(nextMonth)
     setSelected(null)
   }
 
   const choose = (date: string, mood: Mood) => {
+    if (setMood.isPending) return
     setMood.mutate({ date, mood }, { onError: () => toast.error(t("mood.saveFailed")) })
   }
 
   const clear = (date: string) => {
+    if (deleteMood.isPending) return
     deleteMood.mutate(date, { onError: () => toast.error(t("mood.deleteFailed")) })
   }
+
+  const selectedDate = selected
+    ? t("time.date", {
+        m: Number(selected.slice(5, 7)),
+        d: Number(selected.slice(8, 10)),
+      })
+    : ""
 
   return (
     <div className="space-y-4">
@@ -56,7 +75,7 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
         <div className="flex items-baseline gap-2">
           <span className="font-display text-lg font-semibold tabular-nums">{year}</span>
           <span className="text-muted-foreground text-xs">
-            {t("mood.recordedDays", { n: entries.length })}
+            {t("mood.recordedDays", { count: entries.length })}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -64,6 +83,7 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
             variant="ghost"
             size="icon"
             onClick={() => changeYear(-1)}
+            disabled={year <= MIN_YEAR}
             aria-label={t("stats.prevYear")}
           >
             <ChevronLeft className="size-4" />
@@ -95,6 +115,33 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
       {!isLoading && !isError && (
         <>
           {isOwner && <p className="text-muted-foreground text-xs">{t("mood.backfillHint")}</p>}
+
+          {isOwner && selected && (
+            <div className="wisp-card space-y-2 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{t("mood.pickDate", { date: selectedDate })}</p>
+                {byDate.has(selected) && (
+                  <button
+                    type="button"
+                    onClick={() => clear(selected)}
+                    disabled={deleteMood.isPending}
+                    className="text-muted-foreground hover:text-foreground text-[11px] transition-colors disabled:opacity-60"
+                  >
+                    {t("mood.clear")}
+                  </button>
+                )}
+              </div>
+              <MoodPicker
+                value={byDate.get(selected)}
+                disabled={setMood.isPending}
+                label={t("mood.pickDate", { date: selectedDate })}
+                onSelect={(mood) => {
+                  if (mood !== byDate.get(selected)) choose(selected, mood)
+                }}
+              />
+            </div>
+          )}
+
           <MonthEditor
             year={year}
             month={month}
@@ -106,35 +153,12 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
             onChangeMonth={changeMonth}
           />
 
-          {isOwner && selected && (
-            <div className="wisp-card space-y-2 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">
-                  {t("mood.pickDate", {
-                    date: t("time.date", {
-                      m: Number(selected.slice(5, 7)),
-                      d: Number(selected.slice(8, 10)),
-                    }),
-                  })}
-                </p>
-                {byDate.has(selected) && (
-                  <button
-                    type="button"
-                    onClick={() => clear(selected)}
-                    className="text-muted-foreground hover:text-foreground text-[11px] transition-colors"
-                  >
-                    {t("mood.clear")}
-                  </button>
-                )}
-              </div>
-              <MoodPicker
-                value={byDate.get(selected)}
-                onSelect={(mood) => choose(selected, mood)}
-              />
-            </div>
-          )}
-
-          <YearOverview year={year} byDate={byDate} onPickMonth={(m) => changeMonth(year, m)} />
+          <YearOverview
+            year={year}
+            byDate={byDate}
+            maxMonth={year === currentYear ? currentMonth : 11}
+            onPickMonth={(m) => changeMonth(year, m)}
+          />
 
           {entries.length === 0 ? (
             <p className="text-muted-foreground py-4 text-center text-sm">{t("mood.empty")}</p>
@@ -146,10 +170,7 @@ export function MoodTab({ isOwner }: { isOwner: boolean }) {
                 const pct = Math.round((n / entries.length) * 100)
                 return (
                   <div key={mood} className="flex items-center gap-2 text-xs" data-mood={mood}>
-                    <span
-                      className="mood-text flex w-20 shrink-0 items-center gap-1"
-                      data-mood={mood}
-                    >
+                    <span className="mood-text flex w-20 shrink-0 items-center gap-1">
                       <MoodIcon mood={mood} className="size-4" />
                       {t(`mood.${mood}`)}
                     </span>
@@ -202,10 +223,11 @@ function MonthEditor({
   const leading = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const atCurrentMonth = year > todayYear || (year === todayYear && month >= todayMonth)
+  const atMinMonth = year <= MIN_YEAR && month <= 0
 
   const shift = (delta: number) => {
     const next = new Date(year, month + delta, 1)
-    if (next > new Date(todayYear, todayMonth, 1)) return
+    if (next < new Date(MIN_YEAR, 0, 1) || next > new Date(todayYear, todayMonth, 1)) return
     onChangeMonth(next.getFullYear(), next.getMonth())
   }
 
@@ -216,7 +238,8 @@ function MonthEditor({
           variant="ghost"
           size="icon"
           onClick={() => shift(-1)}
-          aria-label={t("stats.prevYear")}
+          disabled={atMinMonth}
+          aria-label={t("mood.prevMonth")}
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -226,7 +249,7 @@ function MonthEditor({
           size="icon"
           onClick={() => shift(1)}
           disabled={atCurrentMonth}
-          aria-label={t("stats.nextYear")}
+          aria-label={t("mood.nextMonth")}
         >
           <ChevronRight className="size-4" />
         </Button>
@@ -259,7 +282,7 @@ function MonthEditor({
               aria-label={`${key}${mood ? ` · ${t(`mood.${mood}`)}` : ""}`}
               onClick={() => onSelect(key)}
               className={cn(
-                "mood-day flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg border text-[11px] transition-colors",
+                "mood-day flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg border text-[11px] transition-colors motion-reduce:transition-none",
                 future
                   ? "cursor-default opacity-40"
                   : disabled
@@ -280,10 +303,12 @@ function MonthEditor({
 function YearOverview({
   year,
   byDate,
+  maxMonth,
   onPickMonth,
 }: {
   year: number
   byDate: Map<string, Mood>
+  maxMonth: number
   onPickMonth: (month: number) => void
 }) {
   const { t } = useTranslation()
@@ -292,12 +317,17 @@ function YearOverview({
       {Array.from({ length: 12 }, (_, month) => {
         const leading = (new Date(year, month, 1).getDay() + 6) % 7
         const daysInMonth = new Date(year, month + 1, 0).getDate()
+        const future = month > maxMonth
         return (
           <div key={month}>
             <button
               type="button"
+              disabled={future}
               onClick={() => onPickMonth(month)}
-              className="text-muted-foreground hover:text-foreground mb-1 text-[10px] transition-colors"
+              className={cn(
+                "text-muted-foreground hover:text-foreground mb-1 text-[10px] transition-colors",
+                future && "cursor-default opacity-40",
+              )}
             >
               {t("stats.monthShort", { m: month + 1 })}
             </button>
