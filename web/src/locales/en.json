@@ -184,8 +184,9 @@
     "noFile": "No file chosen"
   },
   "stats": {
-    "tabStats": "Stats",
+    "tabStats": "Activity",
     "tabArchive": "Archive",
+    "archiveEmpty": "No posts to archive yet.",
     "tabTags": "Tags",
     "yearTotal": "In {{y}} you posted",
     "posts": "posts",
@@ -410,6 +411,11 @@
     "daysHours": "{{d}}d {{h}}h",
     "hoursMinutes": "{{h}}h {{m}}m",
     "minutes": "{{m}}m",
+    "moodTitle": "Mood in {{year}}",
+    "moodDays_one": "{{count}} day",
+    "moodDays_other": "{{count}} days",
+    "moodEmpty": "No moods recorded this year.",
+    "moodView": "View moods",
     "lastBackupAt": "Last backup: {{time}}"
   },
   "mood": {

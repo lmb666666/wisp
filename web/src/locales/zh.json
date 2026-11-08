@@ -184,8 +184,9 @@
     "noFile": "未选择文件"
   },
   "stats": {
-    "tabStats": "统计",
+    "tabStats": "动态",
     "tabArchive": "归档",
+    "archiveEmpty": "还没有可归档的帖子",
     "tabTags": "标签",
     "yearTotal": "{{y}} 年共发布",
     "posts": "条",
@@ -410,6 +411,10 @@
     "daysHours": "{{d}} 天 {{h}} 小时",
     "hoursMinutes": "{{h}} 小时 {{m}} 分",
     "minutes": "{{m}} 分钟",
+    "moodTitle": "{{year}} 年心情",
+    "moodDays": "{{count}} 天",
+    "moodEmpty": "今年还没有心情记录",
+    "moodView": "查看心情",
     "lastBackupAt": "上次备份：{{time}}"
   },
   "mood": {

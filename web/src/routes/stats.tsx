@@ -8,6 +8,7 @@ import {
   FileText,
   HardDrive,
   Pencil,
+  Smile,
   Tags,
   Trash2,
 } from "lucide-react"
@@ -16,7 +17,10 @@ import { useTranslation } from "react-i18next"
 
 import { useMe } from "@/api/auth"
 import { api, apiError } from "@/api/client"
+import { useMoods } from "@/api/moods"
 import { usePosts } from "@/api/posts"
+import { MoodTab } from "@/components/mood-calendar"
+import { MoodIcon } from "@/components/mood-icon"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -29,7 +33,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MoodTab } from "@/components/mood-calendar"
+import { todayKey } from "@/lib/dates"
+import { countMoods, MOODS } from "@/lib/moods"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -65,7 +70,7 @@ function key(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** 统计 / 归档 / 标签。 */
+/** 统计：动态（发布热力图 + 归档）、心情、标签。 */
 export function StatsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -86,16 +91,22 @@ export function StatsPage() {
             {isOwner && <TabsTrigger value="overview">{t("stats.tabOverview")}</TabsTrigger>}
             <TabsTrigger value="stats">{t("stats.tabStats")}</TabsTrigger>
             <TabsTrigger value="mood">{t("mood.tab")}</TabsTrigger>
-            <TabsTrigger value="archive">{t("stats.tabArchive")}</TabsTrigger>
             <TabsTrigger value="tags">{t("stats.tabTags")}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {current === "overview" && <Overview />}
-      {current === "stats" && <Heatmap />}
+      {current === "stats" && (
+        <div className="space-y-5">
+          <Heatmap />
+          <section className="space-y-3">
+            <h2 className="wisp-section-title">{t("stats.tabArchive")}</h2>
+            <ArchiveList />
+          </section>
+        </div>
+      )}
       {current === "mood" && <MoodTab isOwner={isOwner} />}
-      {current === "archive" && <ArchiveList />}
       {current === "tags" && <TagCloud />}
     </div>
   )
@@ -124,6 +135,11 @@ function Overview() {
     queryKey: ["overview", TZ_OFFSET],
     queryFn: () => api<OverviewResp>(`/admin/overview?tz_offset=${TZ_OFFSET}`),
   })
+  const year = Number(todayKey().slice(0, 4))
+  const moods = useMoods(`${year}-01-01`, `${year}-12-31`)
+  const entries = useMemo(() => moods.data?.items ?? [], [moods.data])
+  const counts = useMemo(() => countMoods(entries), [entries])
+
   if (isLoading) return <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
   if (isError) return <p className="text-muted-foreground text-sm">{t("common.loadFailed")}</p>
   if (!data) return null
@@ -180,6 +196,55 @@ function Overview() {
           </section>
         ))}
       </div>
+      <section className="wisp-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <Smile className="size-3.5" /> {t("overview.moodTitle", { year })}
+            </p>
+            {moods.isLoading ? (
+              <p className="text-muted-foreground mt-2 text-sm">{t("mood.loading")}</p>
+            ) : entries.length === 0 ? (
+              <p className="text-muted-foreground mt-2 text-sm">{t("overview.moodEmpty")}</p>
+            ) : (
+              <>
+                <p className="font-display mt-2 text-2xl font-semibold tabular-nums">
+                  {t("overview.moodDays", { count: entries.length })}
+                </p>
+                <div className="bg-muted mt-2 flex h-2 overflow-hidden rounded-full">
+                  {MOODS.map((mood) =>
+                    counts[mood] > 0 ? (
+                      <div
+                        key={mood}
+                        data-mood={mood}
+                        className="bg-[var(--mood-color)]"
+                        style={{ width: `${(counts[mood] / entries.length) * 100}%` }}
+                      />
+                    ) : null,
+                  )}
+                </div>
+                <div className="text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                  {MOODS.map((mood) =>
+                    counts[mood] > 0 ? (
+                      <span key={mood} className="inline-flex items-center gap-1" data-mood={mood}>
+                        <MoodIcon mood={mood} className="mood-text size-3.5" />
+                        {t(`mood.${mood}`)} {counts[mood]}
+                      </span>
+                    ) : null,
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <Link
+            to="/stats"
+            search={{ tab: "mood" }}
+            className="text-muted-foreground hover:text-foreground shrink-0 text-xs transition-colors"
+          >
+            {t("overview.moodView")}
+          </Link>
+        </div>
+      </section>
       <div className="bg-muted/40 text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl px-3 py-2 text-xs">
         <span className="inline-flex items-center gap-1">
           <Database className="size-3.5" />
@@ -393,6 +458,15 @@ function ArchiveList() {
 
   return (
     <div className="space-y-3">
+      {posts.isLoading && (
+        <p className="text-muted-foreground py-6 text-center text-sm">{t("common.loading")}</p>
+      )}
+      {posts.isError && (
+        <p className="text-muted-foreground py-6 text-center text-sm">{t("common.loadFailed")}</p>
+      )}
+      {groups.length === 0 && !posts.isLoading && !posts.isError && (
+        <p className="text-muted-foreground py-6 text-center text-sm">{t("stats.archiveEmpty")}</p>
+      )}
       {groups.map((g) => (
         <section key={g.label} className="wisp-card p-4">
           <h3 className="mb-1 text-sm font-medium">{g.label}</h3>

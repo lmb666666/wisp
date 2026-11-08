@@ -346,6 +346,19 @@ test("概览：指标卡、备份与版本信息", async ({ page }) => {
   await expect(page.getByText(/上次备份/).first()).toBeVisible()
   await expect(page.getByText(/^v\d/).first()).toBeVisible()
   await expect(page.getByText(/运行时长/).first()).toBeVisible()
+  await expect(page.getByText(/年心情/).first()).toBeVisible()
+})
+
+test("统计页：动态合并归档，旧 tab 自动回退", async ({ page }) => {
+  await ensureLogin(page)
+  await page.goto("/stats")
+  await expect(page.getByRole("tab", { name: "动态" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "归档" })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "归档" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "心情" })).toBeVisible()
+
+  await page.goto("/stats?tab=archive")
+  await expect(page.getByRole("tab", { name: "动态" })).toHaveAttribute("aria-selected", "true")
 })
 
 test("扩展卡片统一外壳：GitHub 与位置", async ({ page }) => {
