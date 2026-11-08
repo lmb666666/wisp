@@ -833,6 +833,13 @@ func TestCapsuleRoundTrip(t *testing.T) {
 	if imp["imported"].(float64) != 0 || imp["skipped"].(float64) != 5 {
 		t.Fatalf("re-import should dedupe: %s", impBody)
 	}
+	if got, _ := imp["moods_imported"].(float64); got != 2 {
+		t.Fatalf("re-import moods = %v, want 2 (upsert)", imp["moods_imported"])
+	}
+	code, body = ownerJSON(guestB, "GET", baseB+"/api/v1/moods?from=2020-01-01&to="+today, nil)
+	if code != 200 || strings.Count(string(body), `"date":`) != 2 {
+		t.Fatalf("moods after re-import = %d %s", code, body)
+	}
 }
 
 // TestMediaLibrary 覆盖媒体列表/统计/无主筛选与删除保护。

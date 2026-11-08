@@ -64,8 +64,8 @@ func (s *Server) latestMood(c echo.Context) error {
 // setMood PUT /api/v1/moods/:date（会话或 write PAT）。
 func (s *Server) setMood(c echo.Context) error {
 	date := c.Param("date")
-	if !moodDateWritable(date) {
-		return apiError(c, http.StatusBadRequest, "bad_request", "日期必须是 2000-01-01 之后的 YYYY-MM-DD")
+	if err := validateMoodDate(date); err != nil {
+		return apiError(c, http.StatusBadRequest, "bad_request", err.Error())
 	}
 	var req struct {
 		Mood string `json:"mood"`
@@ -119,13 +119,16 @@ func (s *Server) emitMood(event string, payload any) {
 	}
 }
 
-// moodDateWritable 允许补记历史日期，最多到服务端 UTC 明天（容忍时区领先）。
-func moodDateWritable(date string) bool {
+// validateMoodDate 允许补记历史日期，最多到服务端 UTC 明天（容忍时区领先）。
+func validateMoodDate(date string) error {
 	if !mood.ValidDate(date) || date < "2000-01-01" {
-		return false
+		return errors.New("日期必须是 2000-01-01 之后的 YYYY-MM-DD")
 	}
 	limit := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02")
-	return date <= limit
+	if date > limit {
+		return errors.New("不能记录未来日期")
+	}
+	return nil
 }
 
 func moodRangeExceeded(from, to string) bool {

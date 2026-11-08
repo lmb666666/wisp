@@ -233,4 +233,19 @@ func TestParseWispMoods(t *testing.T) {
 	if err != nil || len(result.Moods) != 0 || len(result.Posts) != 1 {
 		t.Fatalf("old capsule = %+v, err=%v", result, err)
 	}
+
+	// 只有心情、没有帖子（帖子被删光）也应可导入。
+	moodOnly := writeWispZip(t, "version: 1\n", map[string][]byte{
+		"moods.yaml": []byte("- date: \"2024-02-29\"\n  mood: happy\n"),
+	})
+	result, err = ParseWispFile(moodOnly)
+	if err != nil || len(result.Posts) != 0 || len(result.Moods) != 1 {
+		t.Fatalf("mood-only capsule = %+v, err=%v", result, err)
+	}
+
+	// 既没有帖子也没有心情：拒绝空包。
+	empty := writeWispZip(t, "version: 1\n", nil)
+	if _, err := ParseWispFile(empty); err == nil || !strings.Contains(err.Error(), "没有可导入内容") {
+		t.Fatalf("empty capsule = %v", err)
+	}
 }

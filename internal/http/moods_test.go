@@ -1,8 +1,11 @@
 package http
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -53,6 +56,12 @@ func TestMoodsAPI(t *testing.T) {
 		if code, _ := ownerJSON(owner, "PUT", moodsURL+"/"+tc.date, map[string]string{"mood": tc.mood}); code != http.StatusBadRequest {
 			t.Errorf("%s = %d, want 400", tc.name, code)
 		}
+	}
+	if code, _ := ownerJSON(owner, "PUT", moodsURL+"/"+today, map[string]string{}); code != http.StatusBadRequest {
+		t.Errorf("missing mood = %d, want 400", code)
+	}
+	if code, _ := ownerJSON(owner, "DELETE", moodsURL+"/not-a-date", nil); code != http.StatusBadRequest {
+		t.Errorf("delete bad date = %d, want 400", code)
 	}
 	if code, _ := ownerJSON(owner, "GET", moodsURL+"?from="+today, nil); code != http.StatusBadRequest {
 		t.Errorf("missing to = %d, want 400", code)
@@ -204,5 +213,62 @@ func TestMoodWebhookEvents(t *testing.T) {
 	}
 	if deleted.Data["date"] != date || deleted.Data["mood"] != "" {
 		t.Errorf("mood.deleted payload = %+v", deleted.Data)
+	}
+}
+
+func TestMoodOnlyCapsuleImport(t *testing.T) {
+	base, owner, guest := newTestServer(t)
+	initTestOwner(t, base, owner)
+
+	var archive bytes.Buffer
+	zw := zip.NewWriter(&archive)
+	if w, err := zw.Create("wisp.yaml"); err != nil {
+		t.Fatal(err)
+	} else if _, err := w.Write([]byte("version: 1\nexported_at: 1790000000\n")); err != nil {
+		t.Fatal(err)
+	}
+	if w, err := zw.Create("moods.yaml"); err != nil {
+		t.Fatal(err)
+	} else if _, err := w.Write([]byte("- date: \"2020-01-02\"\n  mood: calm\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	if err := mw.WriteField("source", "wisp"); err != nil {
+		t.Fatal(err)
+	}
+	fw, err := mw.CreateFormFile("file", "moods.zip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fw.Write(archive.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, base+"/api/v1/admin/import", &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := owner.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(raw), `"moods_imported":1`) {
+		t.Fatalf("mood-only import = %d %s", resp.StatusCode, raw)
+	}
+
+	code, got := ownerJSON(guest, "GET", base+"/api/v1/moods?from=2020-01-02&to=2020-01-02", nil)
+	if code != http.StatusOK || !strings.Contains(string(got), `"mood":"calm"`) {
+		t.Fatalf("imported mood = %d %s", code, got)
 	}
 }

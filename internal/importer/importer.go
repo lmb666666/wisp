@@ -37,10 +37,7 @@ type Post struct {
 }
 
 // Mood 每日心情（Wisp capsule 的 moods.yaml）。
-type Mood struct {
-	Date string `yaml:"date"`
-	Mood string `yaml:"mood"`
-}
+type Mood = capsule.Mood
 
 // Result wisp capsule 的解析结果：帖子 + 可选心情。
 type Result struct {
@@ -83,7 +80,7 @@ func normalizeVisibility(v string) string {
 	}
 }
 
-// ParseFile 从磁盘读取（wisp capsule 用流式 zip.Reader，避免大包全部进内存）。
+// ParseFile 从磁盘读取（wisp capsule 用流式 zip.Reader）；仅返回帖子，心情请用 ParseWispFile。
 func ParseFile(source, file string) ([]Post, error) {
 	if source == "wisp" {
 		result, err := ParseWispFile(file)
@@ -111,15 +108,7 @@ func ParseWispFile(file string) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("打开 wisp capsule: %w", err)
 	}
-	posts, err := parseWispZip(zr)
-	if err != nil {
-		return Result{}, err
-	}
-	moods, err := parseWispMoods(zr)
-	if err != nil {
-		return Result{}, err
-	}
-	return Result{Posts: posts, Moods: moods}, nil
+	return parseWispResult(zr)
 }
 
 // Parse 依据 source 分发解析。
@@ -149,6 +138,11 @@ func ParseWisp(data []byte) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("打开 wisp capsule: %w", err)
 	}
+	return parseWispResult(zr)
+}
+
+// parseWispResult 统一解析帖子与可选心情，并拒绝完全空包。
+func parseWispResult(zr *zip.Reader) (Result, error) {
 	posts, err := parseWispZip(zr)
 	if err != nil {
 		return Result{}, err
@@ -156,6 +150,9 @@ func ParseWisp(data []byte) (Result, error) {
 	moods, err := parseWispMoods(zr)
 	if err != nil {
 		return Result{}, err
+	}
+	if len(posts) == 0 && len(moods) == 0 {
+		return Result{}, fmt.Errorf("capsule 中没有可导入内容")
 	}
 	return Result{Posts: posts, Moods: moods}, nil
 }
@@ -576,9 +573,6 @@ func parseWispZip(zr *zip.Reader) ([]Post, error) {
 			p.Files = append(p.Files, item)
 		}
 		posts = append(posts, p)
-	}
-	if len(posts) == 0 {
-		return nil, fmt.Errorf("capsule 中没有 posts/ 内容")
 	}
 	return posts, nil
 }

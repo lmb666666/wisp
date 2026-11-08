@@ -14,9 +14,7 @@ const (
 	Low   = "low"
 )
 
-// All 按「正向 → 中位 → 低能量」排序；前端依赖该顺序展示。
-var All = []string{Happy, Calm, Okay, Tired, Low}
-
+// valid 是受支持的心情值集合；前端按 happy→low 的顺序展示。
 var valid = map[string]bool{
 	Happy: true,
 	Calm:  true,

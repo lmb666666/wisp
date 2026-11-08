@@ -179,7 +179,7 @@ func (s *Server) importMoods(ctx context.Context, items []importer.Mood) (import
 	userID := s.ownerID(ctx)
 	now := time.Now().Unix()
 	for _, item := range items {
-		if !mood.Valid(item.Mood) || !mood.ValidDate(item.Date) {
+		if !mood.Valid(item.Mood) || validateMoodDate(item.Date) != nil {
 			failed++
 			continue
 		}

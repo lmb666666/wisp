@@ -3,7 +3,7 @@ package mood
 import "testing"
 
 func TestValid(t *testing.T) {
-	for _, value := range All {
+	for _, value := range []string{Happy, Calm, Okay, Tired, Low} {
 		if !Valid(value) {
 			t.Errorf("%q 应为合法心情", value)
 		}
@@ -12,9 +12,6 @@ func TestValid(t *testing.T) {
 		if Valid(value) {
 			t.Errorf("%q 应为非法心情", value)
 		}
-	}
-	if len(All) != 5 {
-		t.Fatalf("All = %v, want 5 档", All)
 	}
 }
 
