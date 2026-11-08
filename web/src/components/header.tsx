@@ -31,7 +31,7 @@ export function Header() {
           title="Wisp"
           className="mr-1 flex items-center rounded-lg py-1"
         >
-          <span className="font-display text-[18px] font-semibold tracking-tight">wisp.</span>
+          <span className="font-display text-[20px] font-semibold tracking-tight">wisp</span>
         </Link>
 
         <nav className="ml-auto flex items-center gap-0.5">
