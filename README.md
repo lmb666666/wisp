@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/wordmark-white.svg">
-  <img src="docs/assets/wordmark.svg" width="210" alt="wisp">
+  <img src="docs/assets/wordmark.svg" width="190" alt="wisp">
 </picture>
 
 **记录生活中的小确幸。**
