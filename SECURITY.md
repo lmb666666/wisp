@@ -2,7 +2,7 @@
 
 ## 支持的版本
 
-Wisp 目前处于 `0.x` 阶段，安全修复只保证落在最新版本与 `main` 分支。旧版本请先升级再报告。
+Wisp 目前处于 `0.x` 阶段，安全修复只保证落在最新版本（当前 `0.4.x`）与 `main` 分支。旧版本请先升级再报告。
 
 ## 私下报告
 
@@ -35,6 +35,7 @@ Wisp 目前处于 `0.x` 阶段，安全修复只保证落在最新版本与 `mai
 Wisp 是单作者自托管软件，安全性也取决于部署方式：
 
 - 生产环境必须使用 HTTPS，并设置正确的 `WISP_PUBLIC_URL`
+- 容器部署保持 compose 默认的只读根文件系统、`cap_drop: ALL` 与 `no-new-privileges`；不要给容器 `privileged`
 - 使用强密码或 Passkey；不要复用其他站点密码
 - 不要公开 `data/`、备份文件或 `.env`
 - 保持 `WISP_ENABLE_SWAGGER=false`（除非确实需要在线调试）

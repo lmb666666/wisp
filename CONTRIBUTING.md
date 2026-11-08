@@ -39,6 +39,7 @@ Echo v4 ── 会话 / PAT / CSRF / 限流 / CORS
 | `cmd/wisp` / `cmd/wisp-cli` | 服务入口；PAT 驱动的官方 CLI |
 | `internal/http` | 路由、中间件、DTO 映射、OG/RSS/静态资源 |
 | `internal/service` | 帖子领域逻辑：渲染、标签、附件、卡片解析 |
+| `internal/mood` | 每日心情取值、日期校验（API / 导入共用） |
 | `internal/db` / `internal/repo` | SQLite 打开、WAL、goose 迁移与快照；sqlc 生成代码（不要手改） |
 | `internal/media` | 上传管线、缩略图、Storage 接口与 local / S3 / Lsky 驱动 |
 | `internal/unfurl` | B 站 / YouTube / Meting / GitHub / OG 解析 |
@@ -51,7 +52,7 @@ Echo v4 ── 会话 / PAT / CSRF / 限流 / CORS
 
 安全基线（改动时不要破坏）：密码 argon2id；PAT 只存 SHA-256；Cookie 写请求校验 Origin；上传限制大小与 MIME、文件名/键由服务端生成；unfurl 对用户 URL 做 SSRF 防护；导入限制解压总量与路径穿越。
 
-已知取舍：单进程单写者，不支持多实例共享同一个 SQLite；发帖/导入未整体包在一个 DB 事务内，极端失败可能留下可由媒体库清理的孤儿文件；切换存储驱动后旧驱动对象的删除只能尽力而为。
+已知取舍：单进程单写者，不支持多实例共享同一个 SQLite；导入未整体包在一个 DB 事务内，极端失败可能留下可由媒体库清理的孤儿文件；切换存储驱动后旧驱动对象的删除只能尽力而为。
 
 ## 提交前检查
 
@@ -68,9 +69,10 @@ pnpm --dir web build
 涉及前端交互的改动，请跑 Playwright；涉及 API/导入/备份的改动，请跑验收矩阵：
 
 ```bash
-# 终端 1：全新实例
+# 终端 1：全新实例（Swagger 用例需要 WISP_ENABLE_SWAGGER=true）
 WISP_PORT=18099 WISP_PUBLIC_URL=http://localhost:18099 \
-WISP_DATA_DIR=/tmp/wisp-e2e WISP_API_RATE_LIMIT=1000 ./wisp
+WISP_DATA_DIR=/tmp/wisp-e2e WISP_API_RATE_LIMIT=1000 \
+WISP_AUTH_RATE_LIMIT=1000 WISP_ENABLE_SWAGGER=true ./wisp
 
 # 终端 2
 WISP_URL=http://localhost:18099 pnpm --dir web exec playwright test

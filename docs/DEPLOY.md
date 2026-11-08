@@ -15,6 +15,7 @@
 | `WISP_READ_TIMEOUT` | `10m` | 整个请求（含上传 body）的读取上限 |
 | `WISP_WRITE_TIMEOUT` | `5m` | 响应写入上限 |
 | `WISP_CORS_ORIGINS` | （空） | 允许跨域调用 API 的来源白名单（逗号分隔，仅 /api/v1，PAT 认证） |
+| `WISP_TRUST_PROXIES` | `false` | 置 `true` 时从 `X-Forwarded-For` 取客户端 IP（限流用）；仅在可信反向代理后开启 |
 | `WISP_METING_API` | （空） | Meting 音乐解析端点（自托管；配置后网易云/QQ 音乐链接自动出音乐卡） |
 | `WISP_GEOCODE_URL` | （空） | Nominatim 兼容端点根地址（如 `https://nominatim.openstreetmap.org`）；配置后位置卡支持搜索与坐标反查，留空则只用地理定位/手填 |
 
@@ -29,7 +30,7 @@ WISP_PUBLIC_URL=https://wisp.example.com \
 docker compose up -d --build
 ```
 
-使用发布镜像（v0.3.1+）：
+使用发布镜像：
 
 ```bash
 mkdir -p data
@@ -38,6 +39,24 @@ WISP_UID="$(id -u)" WISP_GID="$(id -g)" WISP_PUBLIC_URL=https://wisp.example.com
 ```
 
 首次访问会进入首启向导；创建所有者后即可发布。数据、媒体与备份都在 `./data`。
+
+### 容器安全默认
+
+compose 默认以宿主 UID 运行，并启用：
+
+- `read_only: true`：根文件系统只读；只有 `./data` 与 `/tmp` 内存盘可写
+- `tmpfs: /tmp`：临时目录走内存盘
+- `cap_drop: ALL` + `no-new-privileges:true`
+- `stop_grace_period: 30s`：给优雅退出、Webhook 排空与备份收尾留时间
+
+内容包导入的临时文件会落在数据目录，不占用 `/tmp` 内存盘。若自行修改 compose，请保留 `/data` 可写；需要导入 / 上传临时文件时也保留 `/tmp` 可写（或挂载 tmpfs）。
+
+查看日志与状态：
+
+```bash
+docker compose logs -f wisp
+docker compose ps
+```
 
 ## 二进制
 
