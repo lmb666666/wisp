@@ -23,8 +23,10 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/hero-dark.png">
-    <img src="docs/assets/screenshots/hero-light.png" width="100%" alt="Wisp 界面：说说详情、时间线与每日心情">
+    <img src="docs/assets/screenshots/hero-light.png" width="100%" alt="Wisp 桌面端与移动端界面：时间线与每日心情">
   </picture>
+  <br>
+  <sub>桌面端与移动端 · 时间线 / 每日心情</sub>
 </p>
 
 ## 为什么是 Wisp
@@ -69,24 +71,6 @@
     </td>
   </tr>
 </table>
-
-<details>
-<summary>更多截图</summary>
-
-<br>
-
-<table align="center">
-  <tr>
-    <td align="center"><img src="docs/assets/screenshots/home-light.png" width="300" alt="时间线 · 浅色"><br><sub>时间线 · 浅色</sub></td>
-    <td align="center"><img src="docs/assets/screenshots/home-dark.png" width="300" alt="时间线 · 深色"><br><sub>时间线 · 深色</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/assets/screenshots/mood.png" width="300" alt="每日心情 · 月度补记与年度概览"><br><sub>每日心情</sub></td>
-    <td align="center"><img src="docs/assets/screenshots/post-detail.png" width="300" alt="扩展卡片"><br><sub>扩展卡片</sub></td>
-  </tr>
-</table>
-
-</details>
 
 ## 快速开始
 
