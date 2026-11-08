@@ -1,11 +1,17 @@
 .git
+.github
 docs
 data
 data.*
 backups
+scripts
 web/node_modules
 web/dev-dist
 web/dist
+web/e2e
+web/test-results
+web/playwright.config.ts
+web/eslint.config.js
 *.md
 !README.md
 wisp

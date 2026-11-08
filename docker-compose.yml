@@ -13,6 +13,16 @@ services:
       - "${WISP_PORT:-8080}:8080"
     volumes:
       - ./data:/data
+    # 只读根文件系统 + /tmp 内存盘：应用只写 ./data；导入/镜像的临时文件走 /tmp。
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # 应用优雅退出上限 15s，再给 webhook/备份排空留余量。
+    stop_grace_period: 30s
     environment:
       - WISP_PUBLIC_URL=${WISP_PUBLIC_URL:-http://localhost:8080}
       - WISP_LOG_LEVEL=${WISP_LOG_LEVEL:-info}
