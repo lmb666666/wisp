@@ -49,7 +49,9 @@ func (s *Server) adminImport(c echo.Context) error {
 	var posts []importer.Post
 	var moods []importer.Mood
 	if source == "wisp" {
-		tmp, err := os.CreateTemp("", "wisp-capsule-*.zip")
+		// 落在数据目录而不是系统 /tmp：只读根文件系统 + tmpfs 部署时，
+		// 256MB 内容包不应占用内存盘。
+		tmp, err := os.CreateTemp(s.cfg.DataDir, "wisp-import-*.zip")
 		if err != nil {
 			return s.internalError(c, err)
 		}
