@@ -4,7 +4,7 @@
 
 ### 变更
 
-- **品牌**：slogan 改为「记录生活中的小确幸」；主 logo 改为透明底的 `wisp.` 字标（Space Grotesk + 方形句点），站点 Header / 登录页去掉 W 图标；favicon / PWA 使用方形句点，Banner / OG / README 同步更新
+- **品牌**：slogan 改为「记录生活中的小确幸」；主 logo 改为透明底的 `wisp.` 字标（Space Grotesk + 方形句点），站点 Header 改用文字字标、登录页去掉重复图形；favicon / PWA 使用方形句点，Banner / OG / README 同步更新
 
 ## [0.4.0] - 2026-11-08
 

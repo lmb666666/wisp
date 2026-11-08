@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next"
 import { useLogout, useMe } from "@/api/auth"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { Wordmark } from "@/components/wordmark"
 import { cn } from "@/lib/utils"
 import { toggleLanguage } from "@/i18n"
 
@@ -32,7 +31,7 @@ export function Header() {
           title="Wisp"
           className="mr-1 flex items-center rounded-lg py-1"
         >
-          <Wordmark className="h-8 w-auto" />
+          <span className="font-display text-[18px] font-semibold tracking-tight">wisp.</span>
         </Link>
 
         <nav className="ml-auto flex items-center gap-0.5">
