@@ -115,7 +115,7 @@ jobs:
         run: |
           WISP_PORT=18099 WISP_PUBLIC_URL=http://localhost:18099 \
           WISP_DATA_DIR="$RUNNER_TEMP/wisp-e2e" WISP_API_RATE_LIMIT=1000 \
-          WISP_AUTH_RATE_LIMIT=1000 ./wisp > wisp-e2e.log 2>&1 &
+          WISP_AUTH_RATE_LIMIT=1000 WISP_ENABLE_SWAGGER=true ./wisp > wisp-e2e.log 2>&1 &
           echo $! > wisp-e2e.pid
           for i in $(seq 1 60); do
             curl -fsS http://127.0.0.1:18099/healthz && break

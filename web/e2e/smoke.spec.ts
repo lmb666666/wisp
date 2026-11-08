@@ -579,3 +579,23 @@ test("统计页心情：年历、补记与分布", async ({ page }) => {
   await expect(page.locator(`[data-date="${firstOfMonth}"][data-mood="happy"]`)).toHaveCount(1)
   await expect(page.getByText("心情分布")).toBeVisible()
 })
+
+test("Service Worker 不拦截服务端 /swagger", async ({ page }) => {
+  const probe = await page.request.get("/swagger")
+  if (probe.status() === 404) test.skip(true, "当前实例未开启 Swagger")
+
+  await page.goto("/")
+  await page.waitForFunction(
+    async () => {
+      if (!("serviceWorker" in navigator)) return false
+      const reg = await navigator.serviceWorker.getRegistration()
+      return !!reg?.active
+    },
+    null,
+    { timeout: 10_000 },
+  )
+
+  await page.goto("/swagger")
+  await expect(page).toHaveTitle("Wisp API")
+  await expect(page.locator("#swagger")).toBeAttached()
+})

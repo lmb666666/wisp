@@ -11,6 +11,10 @@
 - **Webhook**：新增 `mood.updated` / `mood.deleted` 事件
 - **内容包**：`moods.yaml` 随 Wisp Capsule 导出/恢复；版本仍为 1，含帖子的新包可被旧实例忽略心情后导入
 
+### 修复
+
+- **PWA**：Service Worker 导航回退不再拦截 `/swagger`、`/healthz`、`/readyz`；此前在已注册 PWA 的浏览器里打开 Swagger 会落到前端 404
+
 ### 迁移
 
 - 新增迁移 00015：`daily_moods`（date 主键 + 日期索引，纯增量，不改 posts）

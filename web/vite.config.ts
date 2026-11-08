@@ -61,9 +61,17 @@ export default defineConfig({
         },
       },
       workbox: {
-        // SPA 离线壳：导航请求回退到缓存的 index.html
+        // SPA 离线壳：导航请求回退到缓存的 index.html。
+        // 服务端渲染/非 SPA 路由必须排除，否则 /swagger 会被 SW 吞成前端 404。
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/media\//, /^\/feed\.xml$/],
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/media\//,
+          /^\/feed\.xml$/,
+          /^\/swagger(?:\/|$)/,
+          /^\/healthz$/,
+          /^\/readyz$/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ url, request }: { url: URL; request: Request }) =>
