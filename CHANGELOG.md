@@ -1,10 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.1] - 2026-11-08
 
 ### 变更
 
-- **品牌**：slogan 改为「记录生活中的小确幸」；主 logo 改为透明底的 `wisp.` 字标（Space Grotesk + 方形句点），站点 Header 改用文字字标、登录页去掉重复图形；favicon / PWA 使用方形句点，Banner / OG / README 同步更新
+- **品牌**：slogan 改为「记录生活中的小确幸」；主 logo 改为透明底的 `wisp.` 字标（Space Grotesk + 方形句点），站点 Header 改用无句点的文字字标、登录页去掉重复图形；favicon / PWA 使用方形句点，Banner / OG / README 同步更新
+- **文档**：重写 README 的信息架构与截图，同步更新部署、API、迁移与贡献文档
+
+### 兼容性
+
+- 仅品牌与文档调整，无代码、API、schema 变更；可直接替换二进制或镜像升级
 
 ## [0.4.0] - 2026-11-08
 

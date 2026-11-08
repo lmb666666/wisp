@@ -82,7 +82,7 @@ docker compose up -d --build
 从 [Releases](https://github.com/lmb666666/wisp/releases) 下载对应平台压缩包：
 
 ```bash
-tar -xzf wisp_0.4.0_linux_amd64.tar.gz
+tar -xzf wisp_0.4.1_linux_amd64.tar.gz
 WISP_PUBLIC_URL=https://wisp.example.com ./wisp
 ```
 

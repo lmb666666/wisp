@@ -5,7 +5,7 @@ package http
 const openAPISpec = `openapi: 3.0.3
 info:
   title: Wisp API
-  version: "0.4.0"
+  version: "0.4.1"
   description: |
     Wisp 自托管说说 API。认证方式二选一：
     1. 会话 Cookie（Web UI 使用，HttpOnly）；
