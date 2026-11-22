@@ -7,10 +7,10 @@
 需要：
 
 - Go 1.26+
-- Node.js 22+（CI 使用 24）
+- Node.js 22+（CI 与 Docker 镜像使用 24）
 - pnpm 11
 - SQLite 由 `modernc.org/sqlite` 内置，无需安装
-- `sqlc`（修改 SQL 时）
+- `sqlc`（修改 SQL 时；注意：查询体内不要写中文注释，会破坏 sqlc 的 SQL 解析，注释放在 `-- name:` 注解之前）
 
 ```bash
 pnpm --dir web install

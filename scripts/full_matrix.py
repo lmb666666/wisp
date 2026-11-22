@@ -75,6 +75,8 @@ def jreq(method, path, body=None, jar=None, token=None, headers=None):
 owner = "owner"
 code, b = jreq("GET", "/healthz", jar=owner)
 check("healthz", code == 200 and b.get("status") == "ok")
+code, b = jreq("GET", "/readyz")
+check("readyz", code == 200 and b.get("status") == "ready", f"{code} {b}")
 code, b = jreq("GET", "/api/v1/ping")
 check("ping", code == 200 and b.get("pong") == "wisp")
 code, b = jreq("GET", "/api/v1/auth/status", jar=owner)
@@ -96,6 +98,29 @@ code, b = jreq("POST", "/api/v1/auth/login", {"username": "liang", "password": "
 check("auth.login 错误密码(401)", code == 401)
 code, b = jreq("GET", "/api/v1/auth/status")
 check("auth.status 匿名不泄露用户名", code == 200 and "username" not in b)
+
+# profile 与 passkey 端点
+code, b = jreq("GET", "/api/v1/auth/profile", jar=owner)
+check("profile GET", code == 200 and b.get("username") == "liang", f"{code} {b}")
+code, b = jreq("PATCH", "/api/v1/auth/profile", {"display_name": "Liang Matrix"}, jar=owner)
+check("profile PATCH 昵称", code == 200 and b.get("display_name") == "Liang Matrix", f"{code} {b}")
+code, _ = jreq("PATCH", "/api/v1/auth/profile",
+               {"current_password": "wrongpass1", "new_password": "password456"}, jar=owner)
+check("改密错误旧密码→400", code == 400, str(code))
+code, b = jreq("GET", "/api/v1/auth/passkeys", jar=owner)
+check("passkey 列表(空)", code == 200 and b.get("items") == [], f"{code} {b}")
+code, b = jreq("POST", "/api/v1/auth/passkey/login/begin", {})
+# 200 = 已启用（返回仪式选项）；501 = 实例未启用（如 PublicURL 异常）
+check("passkey login begin", code in (200, 501, 503), f"{code} {b}")
+code, _ = jreq("GET", "/api/v1/auth/passkeys")
+check("passkey 列表游客→401", code == 401)
+
+# PAT 吊销
+code, tok3 = jreq("POST", "/api/v1/auth/tokens", {"name": "shortlived", "scopes": "read"}, jar=owner)
+code, _ = jreq("DELETE", f"/api/v1/auth/tokens/{tok3.get('id')}", jar=owner)
+check("PAT 吊销", code == 204)
+code, _ = jreq("GET", "/api/v1/posts?limit=1", token=tok3.get("token", ""))
+check("吊销后 PAT→401", code == 401)
 
 
 # ===== 2. 附件 =====
@@ -150,6 +175,17 @@ check("发帖(渲染+标签+附件)", code == 201 and "<strong>" in p1.get("cont
 code, b = jreq("GET", "/api/v1/admin/media?orphan=1", jar=owner)
 check("媒体库无主筛选", code == 200 and b.get("total") == 1
       and b["items"][0]["id"] == attf["id"], f"{code} {b}")
+# 游标分页：首页 limit=1 → has_more；用复合游标取下一页不重不漏
+code, pg1 = jreq("GET", "/api/v1/admin/media?limit=1", jar=owner)
+if pg1.get("items") and pg1.get("has_more"):
+    last = pg1["items"][0]
+    code, pg2 = jreq("GET",
+                     f"/api/v1/admin/media?limit=1&before_ts={last['created_at']}&before_id={last['id']}",
+                     jar=owner)
+    check("媒体库游标翻页", code == 200 and pg2.get("items")
+          and pg2["items"][0]["id"] != last["id"], f"{code} {pg2}")
+else:
+    check("媒体库游标翻页", False, f"has_more={pg1.get('has_more')} items={len(pg1.get('items', []))}")
 code, b = jreq("GET", "/api/v1/admin/media/stats", jar=owner)
 check("媒体库统计", code == 200 and b.get("count", 0) >= 2 and b.get("orphan") == 1
       and b.get("bytes", 0) > 0, f"{code} {b}")
@@ -157,6 +193,29 @@ code, _ = jreq("DELETE", "/api/v1/admin/media/" + att["id"], jar=owner)
 check("媒体库拒绝删除已绑定(409)", code == 409)
 code, _ = jreq("DELETE", "/api/v1/admin/media/" + attf["id"], jar=owner)
 check("媒体库删除无主(204)", code == 204)
+
+# 视频封面：mp4 附件 → poster 上传 → 删除
+def mp4():
+    # 最小 ftyp box：Go 嗅探为 video/mp4
+    return b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 64
+
+code, vatt = upload("v.mp4", mp4(), "video/mp4")
+check("视频附件(kind=video)", code == 201 and vatt.get("kind") == "video", f"{code} {vatt.get('kind')}")
+boundary_poster = "----wispposter789"
+poster_body = (f"--{boundary_poster}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"poster.jpg\"\r\n"
+               f"Content-Type: image/jpeg\r\n\r\n").encode() + b"\xff\xd8\xffe" + f"\r\n--{boundary_poster}--\r\n".encode()
+r = urllib.request.Request(BASE + f"/api/v1/attachments/{vatt['id']}/poster",
+                           data=poster_body, method="POST",
+                           headers={"Content-Type": f"multipart/form-data; boundary={boundary_poster}",
+                                    "Cookie": COOKIE})
+try:
+    resp = urllib.request.build_opener().open(r, timeout=15)
+    poster_code = resp.status
+except urllib.error.HTTPError as e:
+    poster_code = e.code
+check("视频封面上传", poster_code == 200, str(poster_code))
+code, _ = jreq("DELETE", "/api/v1/admin/media/" + vatt["id"], jar=owner)
+check("视频附件删除", code == 204)
 code, p2 = jreq("POST", "/api/v1/posts", {"content_md": "时间线第二帖"}, jar=owner)
 check("第二帖创建", code == 201)
 code, p3 = jreq("POST", "/api/v1/posts", {"content_md": "补发的时间机器", "published_at": 1700000000}, jar=owner)
@@ -289,6 +348,38 @@ r = urllib.request.Request(BASE + "/api/v1/admin/import", data=body, method="POS
 imp2 = json.loads(urllib.request.build_opener().open(r, timeout=60).read())
 check("导入幂等", imp2.get("imported") == 0 and imp2.get("skipped") == 1, str(imp2))
 
+# ===== 10.5 内容包导出 → wisp capsule 回导（全量去重）=====
+r = urllib.request.Request(BASE + "/api/v1/admin/export/capsule", headers={"Cookie": COOKIE})
+resp = urllib.request.build_opener().open(r, timeout=60)
+capsule_bytes = resp.read()
+cz = zipfile.ZipFile(io.BytesIO(capsule_bytes))
+check("capsule 导出", resp.status == 200 and "wisp.yaml" in cz.namelist()
+      and any(n.startswith("posts/") for n in cz.namelist()),
+      f"{resp.status} {cz.namelist()[:5]}")
+
+boundary2 = "----wispcapsule789"
+capsule_body = (f"--{boundary2}\r\nContent-Disposition: form-data; name=\"source\"\r\n\r\nwisp\r\n"
+                f"--{boundary2}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"capsule.zip\"\r\n"
+                f"Content-Type: application/zip\r\n\r\n").encode() + capsule_bytes + f"\r\n--{boundary2}--\r\n".encode()
+r = urllib.request.Request(BASE + "/api/v1/admin/import", data=capsule_body, method="POST",
+                           headers={"Content-Type": f"multipart/form-data; boundary={boundary2}", "Cookie": COOKIE})
+imp3 = json.loads(urllib.request.build_opener().open(r, timeout=120).read())
+check("capsule 回导去重", imp3.get("imported") == 0 and imp3.get("skipped", 0) >= 1, str(imp3))
+
+# ===== 10.6 Ech0 合成包导入 =====
+ech0_buf = io.BytesIO()
+with zipfile.ZipFile(ech0_buf, "w") as z:
+    z.writestr("echoes/2026/01/ab12cd34.md",
+               "---\nkey: ab12cd34\ncreatedAt: 2026-01-15T10:00:00+08:00\n- key: pic.jpg\n---\nEch0 迁移正文 #ech0")
+    z.writestr("files/images/pic.jpg", png(20, 10))
+ech0_body = (f"--{boundary2}\r\nContent-Disposition: form-data; name=\"source\"\r\n\r\nech0\r\n"
+             f"--{boundary2}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"echo.zip\"\r\n"
+             f"Content-Type: application/zip\r\n\r\n").encode() + ech0_buf.getvalue() + f"\r\n--{boundary2}--\r\n".encode()
+r = urllib.request.Request(BASE + "/api/v1/admin/import", data=ech0_body, method="POST",
+                           headers={"Content-Type": f"multipart/form-data; boundary={boundary2}", "Cookie": COOKIE})
+imp4 = json.loads(urllib.request.build_opener().open(r, timeout=60).read())
+check("导入 ech0", imp4.get("imported") == 1 and imp4.get("files_imported", 0) == 1, str(imp4))
+
 # ===== 11. 存储设置 =====
 code, b = jreq("GET", "/api/v1/admin/settings/storage", jar=owner)
 check("存储设置 GET", code == 200 and b.get("backend") == "local")
@@ -300,6 +391,16 @@ check("非法 S3 配置→400", code == 400)
 code, b = jreq("PUT", "/api/v1/admin/settings/storage",
                {"backend": "local", "mirror_local": False, "s3": {}, "lsky": {}}, jar=owner)
 check("存储设置 PUT 回写", code == 200 and b.get("backend") == "local")
+
+# Meting 设置：GET / PUT / 复位
+code, b = jreq("GET", "/api/v1/admin/settings/meting", jar=owner)
+check("Meting GET", code == 200 and "url" in b, f"{code} {b}")
+code, b = jreq("PUT", "/api/v1/admin/settings/meting",
+               {"url": "http://127.0.0.1:18201/api?server=:server&type=:type&id=:id&r=:r"}, jar=owner)
+check("Meting PUT", code == 200, f"{code} {b}")
+code, b = jreq("GET", "/api/v1/admin/settings/meting", jar=owner)
+check("Meting 生效", code == 200 and "18201" in b.get("url", ""), f"{code} {b}")
+code, _ = jreq("PUT", "/api/v1/admin/settings/meting", {"url": ""}, jar=owner)
 
 # ===== 13. Webhook（本地接收器 + HMAC 校验）=====
 received = {}
@@ -382,6 +483,8 @@ check("静态 CSS", code == 200 and "text/css" in css_hdrs.get("Content-Type", "
 # ===== 17. RSS / OG =====
 code, b = jreq("GET", "/feed.xml")
 check("RSS", code == 200 and "<rss" in b and "webhook 触发帖" in b)
+code, b = jreq("GET", "/feed.xml?tag=fA")
+check("RSS 按标签", code == 200 and "筛选帖" in b and "时间线第二帖" not in b)
 code, b = jreq("GET", "/p/" + p1["id"])
 check("OG 注入", code == 200 and 'property="og:title"' in b)
 
@@ -399,6 +502,8 @@ code, _ = jreq("DELETE", "/api/v1/posts/" + p1["id"], jar=owner)
 check("删除 204", code == 204)
 code, _ = jreq("GET", "/api/v1/posts/" + p1["id"], jar=owner)
 check("删后 404", code == 404)
+code, _ = jreq("DELETE", "/api/v1/posts/nope", jar=owner)
+check("删不存在帖→404", code == 404)
 code, _ = jreq("POST", "/api/v1/auth/logout", jar=owner)
 check("登出", code in (200, 204))
 

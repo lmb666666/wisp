@@ -49,7 +49,7 @@ compose 默认以宿主 UID 运行，并启用：
 - `cap_drop: ALL` + `no-new-privileges:true`
 - `stop_grace_period: 30s`：给优雅退出、Webhook 排空与备份收尾留时间
 
-内容包导入的临时文件会落在数据目录，不占用 `/tmp` 内存盘。若自行修改 compose，请保留 `/data` 可写；需要导入 / 上传临时文件时也保留 `/tmp` 可写（或挂载 tmpfs）。
+内容包（wisp capsule）导入的临时文件落在数据目录，不占用 `/tmp` 内存盘；Moments 导入的 SQLite 读取与存储镜像的中转文件走 `/tmp`。若自行修改 compose，请保留 `/data` 可写；需要导入 / 上传临时文件时也保留 `/tmp` 可写（或挂载 tmpfs）。
 
 查看日志与状态：
 

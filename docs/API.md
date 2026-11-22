@@ -49,8 +49,9 @@ PAT 在「设置 → API 令牌」创建。导入、备份、媒体库、存储 
 | `PATCH` | `/tags/{id}` | 会话 | 重命名 |
 | `POST` | `/tags/merge` | 会话 | 合并 |
 | `DELETE` | `/tags/{id}` | 会话 | 只解绑，不删帖 |
-| `POST` | `/attachments` | write | multipart `file` 上传 |
-| `POST` | `/attachments/{id}/poster` | write | 视频封面（multipart `file`） |
+| `POST` | `/attachments` | write | multipart `file` 上传（≤32MB；sha256 秒传） |
+| `POST` | `/attachments/{id}/poster` | write | 视频封面（multipart `file`，JPEG ≤5MB） |
+| `GET` | `/ping` | 公开 | 存活探针 |
 | `GET` | `/stats/daily?year=&tz_offset=` | 公开 | 年度热力图；`tz_offset` 为 UTC 偏移分钟（东八区 480） |
 | `GET` | `/moods?from=&to=` | 公开 | 每日心情区间（跨度 ≤ 10 年） |
 | `GET` | `/moods/latest` | 公开 | 最近一条心情；没有记录时 `404` |
@@ -67,7 +68,7 @@ PAT 在「设置 → API 令牌」创建。导入、备份、媒体库、存储 
 | `POST` | `/admin/backup/run` | 立即备份 |
 | `GET` | `/admin/export/capsule` | 导出 Wisp 内容包 |
 | `POST` | `/admin/import` | 导入（multipart `source` + `file`） |
-| `GET` | `/admin/media` | 媒体库 |
+| `GET` | `/admin/media` | 媒体库（复合游标分页：`before_ts` + `before_id`，响应含 `has_more`） |
 | `GET` | `/admin/media/stats` | 媒体占用统计 |
 | `DELETE` | `/admin/media/{id}` | 删除附件 |
 | `GET/PUT` | `/admin/settings/storage` | 存储驱动设置 |
