@@ -1700,3 +1700,15 @@ func TestMediaContentTypes(t *testing.T) {
 		}
 	}
 }
+
+// TestDeletePostNotFound 删除不存在的帖子返回 404，与媒体/标签删除语义一致。
+func TestDeletePostNotFound(t *testing.T) {
+	base, owner, _ := newTestServer(t)
+	if code, _ := ownerJSON(owner, "POST", base+"/api/v1/auth/init",
+		map[string]string{"username": "liang", "password": "password123"}); code != http.StatusCreated {
+		t.Fatalf("init: %d", code)
+	}
+	if code, _ := ownerJSON(owner, "DELETE", base+"/api/v1/posts/nope", nil); code != http.StatusNotFound {
+		t.Fatalf("delete nonexistent post: got %d, want 404", code)
+	}
+}

@@ -29,9 +29,9 @@ GROUP BY day
 `
 
 type DailyCountsParams struct {
-	TzModifier    string
-	PublishedAt   int64
-	PublishedAt_2 int64
+	TzModifier   interface{}
+	PublishedAt  int64
+	PublishedAt2 int64
 }
 
 type DailyCountsRow struct {
@@ -40,7 +40,7 @@ type DailyCountsRow struct {
 }
 
 func (q *Queries) DailyCounts(ctx context.Context, arg DailyCountsParams) ([]DailyCountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, dailyCounts, arg.TzModifier, arg.PublishedAt, arg.PublishedAt_2)
+	rows, err := q.db.QueryContext(ctx, dailyCounts, arg.TzModifier, arg.PublishedAt, arg.PublishedAt2)
 	if err != nil {
 		return nil, err
 	}

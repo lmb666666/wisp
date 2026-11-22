@@ -235,8 +235,14 @@ func (s *PostService) createWithDeps(ctx context.Context, authorID int64, p Crea
 			return err
 		}
 		for _, attID := range attIDs {
-			if err := txq.AttachToPost(ctx, repo.AttachToPostParams{PostID: sql.NullString{String: post.ID, Valid: true}, ID: attID}); err != nil {
+			// AttachToPost 带 post_id IS NULL 条件：并发绑定同一附件（秒传去重路径）
+			// 时后到者影响 0 行，必须显式报错回滚，否则帖子成功但附件丢失。
+			n, err := txq.AttachToPost(ctx, repo.AttachToPostParams{PostID: sql.NullString{String: post.ID, Valid: true}, ID: attID})
+			if err != nil {
 				return fmt.Errorf("attach %s: %w", attID, err)
+			}
+			if n == 0 {
+				return fmt.Errorf("附件已被其他帖子绑定: %s", attID)
 			}
 		}
 		if p.IdempotencyKey != "" {
@@ -410,11 +416,10 @@ func (s *PostService) Delete(ctx context.Context, id string, store media.Storage
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("list attachments: %w", err)
 	}
-	if err := s.q.DeletePost(ctx, id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
-		}
+	if n, err := s.q.DeletePost(ctx, id); err != nil {
 		return fmt.Errorf("delete post: %w", err)
+	} else if n == 0 {
+		return ErrNotFound
 	}
 	s.emit("post.deleted", map[string]string{"id": id})
 	for _, a := range atts {

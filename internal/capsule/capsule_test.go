@@ -83,7 +83,7 @@ func TestExportWritesManifestPostsAndMedia(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := q.AttachToPost(ctx, repo.AttachToPostParams{
+	if _, err := q.AttachToPost(ctx, repo.AttachToPostParams{
 		PostID: sql.NullString{String: post.ID, Valid: true}, ID: att.ID,
 	}); err != nil {
 		t.Fatal(err)

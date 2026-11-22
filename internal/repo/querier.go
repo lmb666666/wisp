@@ -10,7 +10,7 @@ import (
 )
 
 type Querier interface {
-	AttachToPost(ctx context.Context, arg AttachToPostParams) error
+	AttachToPost(ctx context.Context, arg AttachToPostParams) (int64, error)
 	ClearPostTags(ctx context.Context, postID string) error
 	CountMedia(ctx context.Context, arg CountMediaParams) (int64, error)
 	CountOrphanMedia(ctx context.Context) (int64, error)
@@ -32,7 +32,7 @@ type Querier interface {
 	DeleteMood(ctx context.Context, arg DeleteMoodParams) (int64, error)
 	DeleteOldIdempotencyKeys(ctx context.Context, createdAt int64) error
 	DeletePasskey(ctx context.Context, id string) error
-	DeletePost(ctx context.Context, id string) error
+	DeletePost(ctx context.Context, id string) (int64, error)
 	DeleteSession(ctx context.Context, id string) error
 	DeleteSessionsByUserKeep(ctx context.Context, arg DeleteSessionsByUserKeepParams) error
 	DeleteTag(ctx context.Context, id int64) error

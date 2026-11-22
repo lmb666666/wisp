@@ -8,7 +8,7 @@ RETURNING *;
 -- name: GetPost :one
 SELECT * FROM posts WHERE id = ? LIMIT 1;
 
--- name: DeletePost :exec
+-- name: DeletePost :execrows
 DELETE FROM posts WHERE id = ?;
 
 -- name: UpdatePost :one

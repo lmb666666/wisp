@@ -82,32 +82,37 @@ func (s *Server) adminImport(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
+	// 去重指纹查询失败必须中止导入：静默跳过会把全部内容重复落库且用户无从察觉。
+	rows, err := s.q.ListPostFingerprints(ctx)
+	if err != nil {
+		return s.internalError(c, fmt.Errorf("list fingerprints: %w", err))
+	}
 	existing := map[string]string{}
-	if rows, err := s.q.ListPostFingerprints(ctx); err == nil {
-		for _, row := range rows {
-			// 与导入侧使用同一套 block 清洗，避免历史展示字段/超量卡片造成重复导入。
-			var stored []service.PostBlock
-			if row.Blocks != "" {
-				_ = json.Unmarshal([]byte(row.Blocks), &stored)
-			}
-			raw, _ := json.Marshal(service.SanitizeBlocks(stored))
-			if key := fingerprint(row.ContentMd, string(raw)); key != "" {
-				existing[key] = row.ID
-			}
+	for _, row := range rows {
+		// 与导入侧使用同一套 block 清洗，避免历史展示字段/超量卡片造成重复导入。
+		var stored []service.PostBlock
+		if row.Blocks != "" {
+			_ = json.Unmarshal([]byte(row.Blocks), &stored)
+		}
+		raw, _ := json.Marshal(service.SanitizeBlocks(stored))
+		if key := fingerprint(row.ContentMd, string(raw)); key != "" {
+			existing[key] = row.ID
 		}
 	}
 	// 无正文/无卡片帖（常见图集）用附件 sha256 指纹去重。
-	if rows, err := s.q.ListAttachmentOnlyFingerprints(ctx); err == nil {
-		grouped := map[string][]string{}
-		for _, row := range rows {
-			if !row.PostID.Valid {
-				continue
-			}
-			grouped[row.PostID.String] = append(grouped[row.PostID.String], row.Sha256)
+	attRows, err := s.q.ListAttachmentOnlyFingerprints(ctx)
+	if err != nil {
+		return s.internalError(c, fmt.Errorf("list attachment fingerprints: %w", err))
+	}
+	grouped := map[string][]string{}
+	for _, row := range attRows {
+		if !row.PostID.Valid {
+			continue
 		}
-		for postID, hashes := range grouped {
-			existing[filesKey(hashes)] = postID
-		}
+		grouped[row.PostID.String] = append(grouped[row.PostID.String], row.Sha256)
+	}
+	for postID, hashes := range grouped {
+		existing[filesKey(hashes)] = postID
 	}
 
 	var imported, skipped, failed, filesImported, filesFailed int
@@ -269,9 +274,11 @@ func (s *Server) backfillFiles(ctx context.Context, postID string, files []impor
 			*failed++
 			continue
 		}
-		if err := s.q.AttachToPost(ctx, repo.AttachToPostParams{
+		n, err := s.q.AttachToPost(ctx, repo.AttachToPostParams{
 			PostID: util.NullStr(postID), ID: att.ID,
-		}); err != nil {
+		})
+		if err != nil || n == 0 {
+			// n == 0：附件已被并发绑定（post_id IS NULL 条件未命中）。
 			*failed++
 			continue
 		}

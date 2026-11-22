@@ -24,13 +24,14 @@ func (s *Server) statsDaily(c echo.Context) error {
 	offset := parseTZOffset(c.QueryParam("tz_offset"))
 	start, end := yearBounds(year, offset)
 
-	var items []dailyRow
 	rows, err := s.q.DailyCounts(c.Request().Context(), repo.DailyCountsParams{
-		TzModifier: tzModifier(offset), PublishedAt: start, PublishedAt_2: end,
+		TzModifier: tzModifier(offset), PublishedAt: start, PublishedAt2: end,
 	})
 	if err != nil {
 		return s.internalError(c, err)
 	}
+	// 预置空切片：JSON 输出 [] 而非 null，与其他列表端点一致。
+	items := make([]dailyRow, 0, len(rows))
 	for _, r := range rows {
 		items = append(items, dailyRow{Day: asString(r.Day), Count: r.Count})
 	}

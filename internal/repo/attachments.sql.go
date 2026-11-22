@@ -10,7 +10,7 @@ import (
 	"database/sql"
 )
 
-const attachToPost = `-- name: AttachToPost :exec
+const attachToPost = `-- name: AttachToPost :execrows
 UPDATE attachments SET post_id = ? WHERE id = ? AND post_id IS NULL
 `
 
@@ -19,9 +19,12 @@ type AttachToPostParams struct {
 	ID     string
 }
 
-func (q *Queries) AttachToPost(ctx context.Context, arg AttachToPostParams) error {
-	_, err := q.db.ExecContext(ctx, attachToPost, arg.PostID, arg.ID)
-	return err
+func (q *Queries) AttachToPost(ctx context.Context, arg AttachToPostParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, attachToPost, arg.PostID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const countMedia = `-- name: CountMedia :one

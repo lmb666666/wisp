@@ -12,7 +12,7 @@ SELECT * FROM attachments WHERE id = ? LIMIT 1;
 -- name: GetAttachmentBySHA256 :one
 SELECT * FROM attachments WHERE sha256 = ? AND post_id IS NULL ORDER BY created_at DESC LIMIT 1;
 
--- name: AttachToPost :exec
+-- name: AttachToPost :execrows
 UPDATE attachments SET post_id = ? WHERE id = ? AND post_id IS NULL;
 
 -- name: ListPostAttachments :many
