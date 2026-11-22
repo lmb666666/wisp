@@ -1643,3 +1643,60 @@ func TestUpdateClearAndTags(t *testing.T) {
 		t.Fatalf("after clear = %+v", got)
 	}
 }
+
+// TestMediaContentTypes 防止伪装成媒体的 HTML 被嗅探成 text/html 内联执行。
+// distroless 无 /etc/mime.types 且 Go 内建表缺 .mov 等条目，必须由服务端显式
+// 声明 Content-Type（见 attachmentHeaders）；未知扩展名一律强制下载。
+func TestMediaContentTypes(t *testing.T) {
+	base, owner, _ := newTestServer(t)
+	if code, _ := ownerJSON(owner, "POST", base+"/api/v1/auth/init",
+		map[string]string{"username": "liang", "password": "password123"}); code != http.StatusCreated {
+		t.Fatalf("init: %d", code)
+	}
+
+	html := []byte("<!doctype html><html><body><script>alert(document.cookie)</script></body></html>")
+
+	code, att := uploadFile(t, owner, base+"/api/v1/attachments", "file", "clip.mov", html)
+	if code != http.StatusCreated {
+		t.Fatalf("upload mov: %d %v", code, att)
+	}
+	movURL := att["url"].(string)
+
+	// 内容必须与第一个文件不同，否则 SHA256 秒传会复用同一附件。
+	code, att2 := uploadFile(t, owner, base+"/api/v1/attachments", "file", "note.txt", []byte("plain text note"))
+	if code != http.StatusCreated {
+		t.Fatalf("upload txt: %d %v", code, att2)
+	}
+
+	for _, tc := range []struct {
+		url             string
+		wantType        string
+		wantDisposition string
+	}{
+		{movURL, "video/quicktime", ""},
+		{att2["url"].(string), "application/octet-stream", "attachment"},
+	} {
+		resp, err := owner.Get(base + tc.url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s: %d", tc.url, resp.StatusCode)
+		}
+		ct := resp.Header.Get("Content-Type")
+		if ct != tc.wantType {
+			t.Errorf("%s Content-Type = %q, want %q", tc.url, ct, tc.wantType)
+		}
+		if strings.HasPrefix(ct, "text/html") {
+			t.Errorf("%s 不得以 text/html 返回", tc.url)
+		}
+		if ct := resp.Header.Get("X-Content-Type-Options"); ct != "nosniff" {
+			t.Errorf("%s X-Content-Type-Options = %q, want nosniff", tc.url, ct)
+		}
+		if cd := resp.Header.Get("Content-Disposition"); cd != tc.wantDisposition {
+			t.Errorf("%s Content-Disposition = %q, want %q", tc.url, cd, tc.wantDisposition)
+		}
+	}
+}

@@ -434,18 +434,28 @@ func (n noDirFS) Open(name string) (http.File, error) {
 	return f, nil
 }
 
-// inlineMediaExts 可以在浏览器内联展示的媒体扩展名；其余（.bin/.txt 等任意文件）
-// 强制下载——distroless 无 mime.types 时 .bin 可能被嗅探成 text/html，成为同源 XSS 载体。
-var inlineMediaExts = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".avif": true,
-	".mp4": true, ".webm": true, ".mov": true,
-	".mp3": true, ".m4a": true, ".ogg": true, ".wav": true, ".flac": true,
+// inlineMediaMimes 可以在浏览器内联展示的媒体扩展名与显式 Content-Type；
+// 其余（.bin/.txt 等任意文件）强制下载。类型必须逐个显式声明：
+// distroless 无 /etc/mime.types，Go 内建表也没有 .mov 等条目，FileServer 会对
+// 未知扩展名做内容嗅探——伪装成媒体的 HTML 会被标成 text/html 内联执行，
+// 构成存储型 XSS。提前设置 Content-Type 后 ServeContent 不再嗅探。
+var inlineMediaMimes = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+	".webp": "image/webp", ".avif": "image/avif",
+	".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+	".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg",
+	".wav": "audio/wav", ".flac": "audio/flac",
 }
 
-// attachmentHeaders 对非内联扩展的响应加 attachment 下载头。
+// attachmentHeaders 为 /media/* 响应声明安全头：内联扩展给显式 Content-Type，
+// 其余一律 octet-stream + attachment 下载。
 func attachmentHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !inlineMediaExts[strings.ToLower(filepath.Ext(r.URL.Path))] {
+		ext := strings.ToLower(filepath.Ext(r.URL.Path))
+		if mt, ok := inlineMediaMimes[ext]; ok {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("Content-Type", mt)
+		} else {
 			w.Header().Set("Content-Disposition", "attachment")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("Content-Type", "application/octet-stream")

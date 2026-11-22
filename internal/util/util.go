@@ -2,6 +2,7 @@
 package util
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"time"
 
@@ -9,8 +10,10 @@ import (
 )
 
 // NewULID 生成按时间排序的 ULID 字符串（posts/attachments/api_tokens 主键）。
+// 熵源用 crypto/rand：ulid.DefaultEntropy 基于 math/rand（时间种子），ID 可预测枚举；
+// crypto/rand.Reader 并发安全，且无跨调用状态。
 func NewULID() string {
-	return ulid.MustNew(ulid.Timestamp(time.Now()), ulid.DefaultEntropy()).String()
+	return ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader).String()
 }
 
 // NullInt64 把时间转为可空 unix 秒列。
