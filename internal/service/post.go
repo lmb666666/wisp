@@ -648,6 +648,10 @@ func (s *PostService) assemble(ctx context.Context, post repo.Post) (*PostDTO, e
 
 // buildDTO 装配 DTO 主体：标签与附件行已由调用方查出（单帖或整页批量）。
 func (s *PostService) buildDTO(ctx context.Context, post repo.Post, tags []string, attRows []repo.Attachment) (*PostDTO, error) {
+	if tags == nil {
+		// 批量路径上无标签帖拿到 nil map 值，统一输出 [] 而非 null
+		tags = []string{}
+	}
 	atts := make([]AttachmentDTO, 0, len(attRows))
 	for _, a := range attRows {
 		atts = append(atts, s.attachmentDTO(a))

@@ -348,3 +348,31 @@ func TestDeleteRemovesPostAndMediaFiles(t *testing.T) {
 		}
 	}
 }
+
+// 无标签帖在批量装配路径必须输出 [] 而非 null（前端 tags.length 直接消费）。
+func TestListTagsEmptySliceNotNull(t *testing.T) {
+	svc, _, _, uid := newTestPostService(t)
+	ctx := context.Background()
+
+	if _, err := svc.Create(ctx, uid, CreateParams{ContentMD: "无标签帖"}); err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := svc.List(ctx, ListParams{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+	if items[0].Tags == nil {
+		t.Fatal("无标签帖 tags = nil, want 空切片")
+	}
+
+	sr, err := svc.Search(ctx, "无标签帖", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sr) != 1 || sr[0].Tags == nil {
+		t.Fatalf("搜索路径 tags = %v, want 空切片", sr[0].Tags)
+	}
+}
