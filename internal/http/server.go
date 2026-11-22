@@ -87,6 +87,7 @@ func New(cfg config.Config, webFS fs.FS, deps Deps) (*echo.Echo, error) {
 		localStore: deps.LocalStore,
 		backup:     deps.Backup,
 		hooks:      deps.Webhooks,
+		passkeys:   deps.Passkeys, // 漏掉这行会让 Passkey 在生产环境永远 501
 		startedAt:  time.Now(),
 	}
 	if s.backup == nil && deps.DB != nil && deps.Querier != nil {

@@ -49,6 +49,10 @@ func newTestServer(t *testing.T) (baseURL string, owner *http.Client, guest *htt
 
 	q := repo.New(database)
 	authSvc := auth.NewService(q)
+	passkeySvc, err := auth.NewWebAuthnService(q, "http://test.local")
+	if err != nil {
+		t.Fatal(err)
+	}
 	postSvc := service.NewPostService(database, q, "http://test.local", "")
 	hooks := webhook.NewDispatcher(q)
 	hooks.Start()
@@ -73,7 +77,7 @@ func newTestServer(t *testing.T) (baseURL string, owner *http.Client, guest *htt
 		DB: database, Querier: q, Auth: authSvc, Posts: postSvc,
 		Uploader: media.NewUploader(store, q), Storage: media.NewSelector(store),
 		LocalStore: store, Webhooks: hooks,
-		Passkeys: nil,
+		Passkeys: passkeySvc,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1710,5 +1714,22 @@ func TestDeletePostNotFound(t *testing.T) {
 	}
 	if code, _ := ownerJSON(owner, "DELETE", base+"/api/v1/posts/nope", nil); code != http.StatusNotFound {
 		t.Fatalf("delete nonexistent post: got %d, want 404", code)
+	}
+}
+
+// TestPasskeyWiring 防止 Deps.Passkeys 再次漏挂进 Server：
+// 曾因构造函数漏赋值导致生产环境 Passkey 端点永远 501。
+func TestPasskeyWiring(t *testing.T) {
+	base, owner, _ := newTestServer(t)
+	if code, _ := ownerJSON(owner, "POST", base+"/api/v1/auth/init",
+		map[string]string{"username": "liang", "password": "password123"}); code != http.StatusCreated {
+		t.Fatalf("init: %d", code)
+	}
+	code, body := ownerJSON(owner, "POST", base+"/api/v1/auth/passkey/login/begin", nil)
+	if code != http.StatusOK {
+		t.Fatalf("passkey login begin: got %d (%s), want 200", code, body)
+	}
+	if !strings.Contains(string(body), "options") {
+		t.Fatalf("missing options: %s", body)
 	}
 }

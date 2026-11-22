@@ -200,13 +200,14 @@ func TestAuthResponsesIncludeIdentity(t *testing.T) {
 	}
 }
 
-// passkey 未启用时 finish 应返回 501，而不是 nil pointer panic。
-func TestPasskeyFinishDisabled(t *testing.T) {
+// passkey 启用后 finish 传无效仪式 ID 应返回 401，而不是 nil pointer panic
+// （曾经的断言 501：那时 Deps.Passkeys 漏挂导致生产环境永远 disabled）。
+func TestPasskeyFinishInvalidCeremony(t *testing.T) {
 	base, _, guest := newTestServer(t)
 	code, _ := ownerJSON(guest, "POST", base+"/api/v1/auth/passkey/login/finish?session=x",
 		map[string]any{})
-	if code != http.StatusNotImplemented {
-		t.Fatalf("finish status = %d, want 501", code)
+	if code != http.StatusUnauthorized {
+		t.Fatalf("finish status = %d, want 401 (unknown ceremony)", code)
 	}
 }
 
