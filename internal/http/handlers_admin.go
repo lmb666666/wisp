@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,10 +45,15 @@ func (s *Server) downloadBackup(c echo.Context) error {
 	defer func() { _ = zw.Close() }()
 	entry, err := zw.Create("wisp.db")
 	if err != nil {
-		return err
+		// 响应头（200）已发出：中途失败无法再改状态码，写日志并保持流结束，
+		// 避免错误处理器把 500 JSON 拼进 zip 正文造成损坏文件（与 capsule 导出同策略）。
+		slog.Error("backup zip create failed", "err", err)
+		return nil
 	}
-	_, err = io.Copy(entry, f)
-	return err
+	if _, err := io.Copy(entry, f); err != nil {
+		slog.Error("backup zip copy failed", "err", err)
+	}
+	return nil
 }
 
 func (s *Server) backupDir() string {

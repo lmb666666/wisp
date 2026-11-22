@@ -294,8 +294,12 @@ func parseTagFilter(raw string) ([]string, error) {
 
 // searchPosts 全文搜索：GET /search?q=...（≥3 字符走 FTS5 trigram，短词 LIKE）。
 func (s *Server) searchPosts(c echo.Context) error {
+	q := c.QueryParam("q")
+	if len([]rune(q)) > 256 {
+		return apiError(c, http.StatusBadRequest, "bad_request", "搜索词过长（上限 256 字符）")
+	}
 	limit := strconvAtoiDefault(c.QueryParam("limit"), 20)
-	items, err := s.posts.Search(c.Request().Context(), c.QueryParam("q"), limit)
+	items, err := s.posts.Search(c.Request().Context(), q, limit)
 	if err != nil {
 		return s.internalError(c, err)
 	}

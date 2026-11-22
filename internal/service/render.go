@@ -127,14 +127,21 @@ func ExtractTags(source string) []string {
 	return tags
 }
 
+// 摘要清洗正则：Excerpt 是 RSS/OG 的高频路径，包级预编译避免每次请求重编译。
+var (
+	reImageMD = regexp.MustCompile(`!\[[^\]]*\]\([^)]*\)`)
+	reLinkMD  = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	reMDMarks = regexp.MustCompile(`[#>*_\x60~\-]{1,}`)
+)
+
 // Excerpt 提取纯文本摘要（RSS / OG 用）。
 func Excerpt(source string, maxRunes int) string {
 	text := source
 	// 去掉图片与链接语法，保留链接文字
-	text = regexp.MustCompile(`!\[[^\]]*\]\([^)]*\)`).ReplaceAllString(text, "")
-	text = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`).ReplaceAllString(text, "$1")
+	text = reImageMD.ReplaceAllString(text, "")
+	text = reLinkMD.ReplaceAllString(text, "$1")
 	// 去掉常见标记符
-	text = regexp.MustCompile(`[#>*_\x60~\-]{1,}`).ReplaceAllString(text, " ")
+	text = reMDMarks.ReplaceAllString(text, " ")
 	fields := strings.Fields(text)
 	text = strings.Join(fields, " ")
 	runes := []rune(text)

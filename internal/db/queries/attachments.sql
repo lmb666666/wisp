@@ -18,6 +18,12 @@ UPDATE attachments SET post_id = ? WHERE id = ? AND post_id IS NULL;
 -- name: ListPostAttachments :many
 SELECT * FROM attachments WHERE post_id = ? ORDER BY created_at ASC, id ASC;
 
+-- AttachmentsByPostIDs: batched ListPostAttachments; ids_json is a JSON array string.
+-- name: AttachmentsByPostIDs :many
+SELECT * FROM attachments
+WHERE post_id IN (SELECT value FROM json_each(sqlc.arg('ids_json')))
+ORDER BY post_id, created_at ASC, id ASC;
+
 -- name: DeleteAttachment :exec
 DELETE FROM attachments WHERE id = ?;
 

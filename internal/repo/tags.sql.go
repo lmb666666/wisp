@@ -182,6 +182,43 @@ func (q *Queries) RenameTag(ctx context.Context, arg RenameTagParams) error {
 	return err
 }
 
+const tagsByPostIDs = `-- name: TagsByPostIDs :many
+SELECT pt.post_id, t.name FROM tags t
+JOIN post_tags pt ON pt.tag_id = t.id
+WHERE pt.post_id IN (SELECT value FROM json_each(?1))
+ORDER BY pt.post_id, t.name ASC
+`
+
+type TagsByPostIDsRow struct {
+	PostID string
+	Name   string
+}
+
+// TagsByPostIDs: batched ListPostTags; ids_json is a JSON array string
+// (same json_each parameterization as ListFilteredPosts).
+func (q *Queries) TagsByPostIDs(ctx context.Context, idsJson interface{}) ([]TagsByPostIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, tagsByPostIDs, idsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TagsByPostIDsRow
+	for rows.Next() {
+		var i TagsByPostIDsRow
+		if err := rows.Scan(&i.PostID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertTag = `-- name: UpsertTag :one
 INSERT INTO tags (name) VALUES (?)
 ON CONFLICT (name) DO UPDATE SET name = excluded.name

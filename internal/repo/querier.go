@@ -11,6 +11,8 @@ import (
 
 type Querier interface {
 	AttachToPost(ctx context.Context, arg AttachToPostParams) (int64, error)
+	// AttachmentsByPostIDs: batched ListPostAttachments; ids_json is a JSON array string.
+	AttachmentsByPostIDs(ctx context.Context, idsJson interface{}) ([]Attachment, error)
 	ClearPostTags(ctx context.Context, postID string) error
 	CountMedia(ctx context.Context, arg CountMediaParams) (int64, error)
 	CountOrphanMedia(ctx context.Context) (int64, error)
@@ -82,6 +84,9 @@ type Querier interface {
 	SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Post, error)
 	SearchPostsBySubstring(ctx context.Context, arg SearchPostsBySubstringParams) ([]Post, error)
 	SetAttachmentPoster(ctx context.Context, arg SetAttachmentPosterParams) error
+	// TagsByPostIDs: batched ListPostTags; ids_json is a JSON array string
+	// (same json_each parameterization as ListFilteredPosts).
+	TagsByPostIDs(ctx context.Context, idsJson interface{}) ([]TagsByPostIDsRow, error)
 	TouchToken(ctx context.Context, arg TouchTokenParams) error
 	UpdatePasskeySignCount(ctx context.Context, arg UpdatePasskeySignCountParams) error
 	UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, error)

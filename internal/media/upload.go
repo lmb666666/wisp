@@ -221,7 +221,11 @@ func (u *Uploader) uploadReader(ctx context.Context, filename string, size int64
 		ThumbRemoteUrl: thumbRemoteURL,
 	})
 	if err != nil {
+		// 回滚连带缩略图，避免留下指向不存在附件行的孤儿对象
 		_ = u.store.Delete(ctx, key)
+		if thumbPath != "" {
+			_ = u.store.Delete(ctx, thumbPath)
+		}
 		return nil, fmt.Errorf("insert attachment: %w", err)
 	}
 	return &row, nil

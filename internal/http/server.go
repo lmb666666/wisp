@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -51,6 +52,10 @@ type Server struct {
 	startedAt  time.Time
 	webFS      fs.FS
 	indexHTML  string
+
+	// settingsMu 串行化存储设置 KV 的读改写（GET 掩码读 / PUT 回填密钥），
+	// 避免并发保存互相覆盖。
+	settingsMu sync.Mutex
 }
 
 // Deps HTTP 层依赖注入。

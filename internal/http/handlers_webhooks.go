@@ -13,10 +13,12 @@ import (
 	"github.com/lmb666666/wisp/internal/util"
 )
 
-func randomHex() string {
+func randomHex() (string, error) {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func timeNowUnix() int64 { return time.Now().Unix() }
@@ -59,6 +61,9 @@ func (s *Server) createWebhook(c echo.Context) error {
 	if !strings.HasPrefix(req.Url, "http://") && !strings.HasPrefix(req.Url, "https://") {
 		return apiError(c, http.StatusBadRequest, "bad_request", "url 必须是 http(s) 地址")
 	}
+	if len(req.Url) > 2048 {
+		return apiError(c, http.StatusBadRequest, "bad_request", "url 过长（上限 2048）")
+	}
 	events := strings.Split(req.Events, ",")
 	cleaned := make([]string, 0, len(events))
 	for _, e := range events {
@@ -74,7 +79,11 @@ func (s *Server) createWebhook(c echo.Context) error {
 	if len(cleaned) == 0 {
 		return apiError(c, http.StatusBadRequest, "bad_request", "至少订阅一个事件")
 	}
-	secret := "wsec_" + randomHex()
+	secretHex, err := randomHex()
+	if err != nil {
+		return s.internalError(c, err)
+	}
+	secret := "wsec_" + secretHex
 	row, err := s.q.CreateWebhook(c.Request().Context(), repo.CreateWebhookParams{
 		ID:        util.NewULID(),
 		Url:       req.Url,

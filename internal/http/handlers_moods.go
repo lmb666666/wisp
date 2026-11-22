@@ -34,8 +34,12 @@ func (s *Server) listMoods(c echo.Context) error {
 		return apiError(c, http.StatusBadRequest, "bad_request", "时间跨度不能超过 10 年")
 	}
 
+	owner, err := s.ownerID(c.Request().Context())
+	if err != nil {
+		return s.internalError(c, err)
+	}
 	rows, err := s.q.ListMoods(c.Request().Context(), repo.ListMoodsParams{
-		UserID:   s.ownerID(c.Request().Context()),
+		UserID:   owner,
 		FromDate: from,
 		ToDate:   to,
 	})
@@ -51,7 +55,11 @@ func (s *Server) listMoods(c echo.Context) error {
 
 // latestMood GET /api/v1/moods/latest（公开）：访客「最近心情」用。
 func (s *Server) latestMood(c echo.Context) error {
-	row, err := s.q.LatestMood(c.Request().Context(), s.ownerID(c.Request().Context()))
+	owner, err := s.ownerID(c.Request().Context())
+	if err != nil {
+		return s.internalError(c, err)
+	}
+	row, err := s.q.LatestMood(c.Request().Context(), owner)
 	if errors.Is(err, sql.ErrNoRows) {
 		return apiError(c, http.StatusNotFound, "not_found", "还没有心情记录")
 	}

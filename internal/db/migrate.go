@@ -43,6 +43,14 @@ func Migrate(database *sql.DB, backupDir string) error {
 	if err := goose.Up(database, "migrations"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	// 升级路径（含历史 DROP COLUMN 等可能改变隐式 rowid 的操作）结束后重建
+	// FTS 外部内容索引，消除 rowid 错位风险；全新库为空表，开销可忽略。
+	if current > 0 && current < target {
+		if _, err := database.ExecContext(context.Background(),
+			"INSERT INTO posts_fts(posts_fts) VALUES('rebuild')"); err != nil {
+			return fmt.Errorf("rebuild posts_fts: %w", err)
+		}
+	}
 	return nil
 }
 

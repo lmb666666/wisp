@@ -102,19 +102,31 @@ func run() error {
 	postSvc.WithNotifier(hooks.Emit)
 	backupSvc := backup.New(database, q, backupDir)
 
-	// 后台清理：过期会话 + 7 天前的幂等键，启动时一次 + 每 24h
+	// 后台清理：过期会话 + 7 天前的幂等键，启动时一次 + 每 24h；进程退出由 defer 取消，失败记日志
+	cleanCtx, cleanCancel := context.WithCancel(context.Background())
+	defer cleanCancel()
 	go func() {
 		clean := func() {
 			now := time.Now().Unix()
-			_ = q.DeleteExpiredSessions(context.Background(), now)
-			_ = q.DeleteOldIdempotencyKeys(context.Background(), now-7*24*3600)
+			runCtx, cancel := context.WithTimeout(cleanCtx, time.Minute)
+			defer cancel()
+			if err := q.DeleteExpiredSessions(runCtx, now); err != nil {
+				slog.Warn("clean expired sessions", "err", err)
+			}
+			if err := q.DeleteOldIdempotencyKeys(runCtx, now-7*24*3600); err != nil {
+				slog.Warn("clean old idempotency keys", "err", err)
+			}
 		}
 		clean()
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for {
-			<-ticker.C
-			clean()
+			select {
+			case <-cleanCtx.Done():
+				return
+			case <-ticker.C:
+				clean()
+			}
 		}
 	}()
 
@@ -183,8 +195,17 @@ func run() error {
 	backupSvc.Start(ctx)
 	defer func() {
 		backupSvc.Wait()
-		hooks.Stop() // 排空 webhook 队列再退，避免事件丢失
-		hooks.Wait()
+		postSvc.Stop() // 停掉链接预取后台任务（随后会关库）
+		hooks.Stop()   // 排空 webhook 队列再退，避免事件丢失
+		// 排空有上限：目标持续超时或队列积压时不无限等待，
+		// 15s HTTP 预算 + 10s 上限仍在 compose stop_grace_period 30s 之内。
+		drained := make(chan struct{})
+		go func() { hooks.Wait(); close(drained) }()
+		select {
+		case <-drained:
+		case <-time.After(10 * time.Second):
+			slog.Warn("webhook drain timed out; dropping in-flight deliveries")
+		}
 	}()
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelShutdown()

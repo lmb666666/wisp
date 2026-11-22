@@ -116,6 +116,11 @@ func (s *Server) adminImport(c echo.Context) error {
 	}
 
 	var imported, skipped, failed, filesImported, filesFailed int
+	// owner 解析失败即中止：静默回退到假设的 user id=1 会把数据挂到错误的用户上。
+	owner, err := s.ownerID(ctx)
+	if err != nil {
+		return s.internalError(c, err)
+	}
 	for _, p := range posts {
 		blocks := service.SanitizeBlocks(convertBlocks(p.Blocks))
 		blocksJSON, _ := json.Marshal(blocks)
@@ -147,7 +152,7 @@ func (s *Server) adminImport(c echo.Context) error {
 			filesImported++
 		}
 
-		dto, err := s.posts.Create(ctx, s.ownerID(ctx), service.CreateParams{
+		dto, err := s.posts.Create(ctx, owner, service.CreateParams{
 			ContentMD:     p.ContentMD,
 			Location:      p.Location,
 			PublishedAt:   p.PublishedAt,
@@ -183,7 +188,10 @@ func (s *Server) importMoods(ctx context.Context, items []importer.Mood) (import
 	if len(items) == 0 {
 		return 0, 0
 	}
-	userID := s.ownerID(ctx)
+	userID, err := s.ownerID(ctx)
+	if err != nil {
+		return 0, len(items)
+	}
 	now := time.Now().Unix()
 	for _, item := range items {
 		if !mood.Valid(item.Mood) || validateMoodDate(item.Date) != nil {
@@ -336,10 +344,11 @@ func fingerprint(contentMD, blocksJSON string) string {
 	return "blocks:" + blocksJSON
 }
 
-// ownerID 当前站点所有者（导入一律归属 owner）。
-func (s *Server) ownerID(ctx context.Context) int64 {
-	if owner, err := s.auth.Owner(ctx); err == nil {
-		return owner.ID
+// ownerID 当前站点所有者（导入/心情一律归属 owner）。
+func (s *Server) ownerID(ctx context.Context) (int64, error) {
+	owner, err := s.auth.Owner(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("resolve owner: %w", err)
 	}
-	return 1
+	return owner.ID, nil
 }

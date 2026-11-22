@@ -27,6 +27,53 @@ func (q *Queries) AttachToPost(ctx context.Context, arg AttachToPostParams) (int
 	return result.RowsAffected()
 }
 
+const attachmentsByPostIDs = `-- name: AttachmentsByPostIDs :many
+SELECT id, post_id, kind, mime, size, width, height, blurhash, thumb_path, poster_path, storage, remote_url, sha256, created_at, storage_key, thumb_remote_url FROM attachments
+WHERE post_id IN (SELECT value FROM json_each(?1))
+ORDER BY post_id, created_at ASC, id ASC
+`
+
+// AttachmentsByPostIDs: batched ListPostAttachments; ids_json is a JSON array string.
+func (q *Queries) AttachmentsByPostIDs(ctx context.Context, idsJson interface{}) ([]Attachment, error) {
+	rows, err := q.db.QueryContext(ctx, attachmentsByPostIDs, idsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.Kind,
+			&i.Mime,
+			&i.Size,
+			&i.Width,
+			&i.Height,
+			&i.Blurhash,
+			&i.ThumbPath,
+			&i.PosterPath,
+			&i.Storage,
+			&i.RemoteUrl,
+			&i.Sha256,
+			&i.CreatedAt,
+			&i.StorageKey,
+			&i.ThumbRemoteUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countMedia = `-- name: CountMedia :one
 SELECT count(*) FROM attachments a
 WHERE (?1 = '' OR a.kind = ?1)

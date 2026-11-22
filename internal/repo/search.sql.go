@@ -14,7 +14,7 @@ SELECT p.id, p.user_id, p.content_md, p.content_html, p.visibility, p.location, 
 JOIN posts_fts f ON f.rowid = p.rowid
 WHERE f.content_md MATCH ?
   AND p.published_at < ?
-ORDER BY p.published_at DESC
+ORDER BY p.published_at DESC, p.id DESC
 LIMIT ?
 `
 
@@ -64,7 +64,7 @@ const searchPostsBySubstring = `-- name: SearchPostsBySubstring :many
 SELECT id, user_id, content_md, content_html, visibility, location, published_at, edited_at, source, client, created_at, blocks FROM posts
 WHERE instr(content_md, ?) > 0
   AND published_at < ?
-ORDER BY published_at DESC
+ORDER BY published_at DESC, id DESC
 LIMIT ?
 `
 

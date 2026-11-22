@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -47,12 +48,18 @@ func (s *Server) loadStorageSettings(ctx context.Context) media.StoredSettings {
 	if err != nil || val == "" {
 		return st
 	}
-	_ = json.Unmarshal([]byte(val), &st)
+	if err := json.Unmarshal([]byte(val), &st); err != nil {
+		// KV 损坏时整体回退默认值，不返回部分填充的结构（与 backup 设置处理一致）
+		slog.Warn("storage settings corrupt, using defaults", "err", err)
+		return media.DefaultSettings()
+	}
 	return st
 }
 
 // getStorageSettings GET /admin/settings/storage（密钥脱敏）。
 func (s *Server) getStorageSettings(c echo.Context) error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	st := s.loadStorageSettings(c.Request().Context())
 	return c.JSON(http.StatusOK, maskSecrets(st))
 }
@@ -66,6 +73,9 @@ func (s *Server) putStorageSettings(c echo.Context) error {
 	if st.Backend != "local" && st.Backend != "s3" && st.Backend != "lsky" {
 		return apiError(c, http.StatusBadRequest, "bad_request", "backend 必须是 local/s3/lsky")
 	}
+	// 读改写全程持锁：并发 PUT 丢失更新会让密钥回填或热切换基于过期状态。
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	st = s.mergeSecrets(c.Request().Context(), st)
 
 	primary, err := media.BuildStorage(c.Request().Context(), st)
@@ -95,6 +105,8 @@ func (s *Server) testStorage(c echo.Context) error {
 	if st.Backend == "local" {
 		return c.JSON(http.StatusOK, map[string]any{"ok": true, "message": "local 驱动始终可用"})
 	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
 	st = s.mergeSecrets(c.Request().Context(), st)
 	primary, err := media.BuildStorage(c.Request().Context(), st)
 	if err != nil {

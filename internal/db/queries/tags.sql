@@ -20,6 +20,14 @@ JOIN post_tags pt ON pt.tag_id = t.id
 WHERE pt.post_id = ?
 ORDER BY t.name ASC;
 
+-- TagsByPostIDs: batched ListPostTags; ids_json is a JSON array string
+-- (same json_each parameterization as ListFilteredPosts).
+-- name: TagsByPostIDs :many
+SELECT pt.post_id, t.name FROM tags t
+JOIN post_tags pt ON pt.tag_id = t.id
+WHERE pt.post_id IN (SELECT value FROM json_each(sqlc.arg('ids_json')))
+ORDER BY pt.post_id, t.name ASC;
+
 -- name: ClearPostTags :exec
 DELETE FROM post_tags WHERE post_id = ?;
 

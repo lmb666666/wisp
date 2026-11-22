@@ -76,18 +76,26 @@ type PostService struct {
 
 	metingMu  sync.RWMutex
 	metingAPI string
+
+	prefetchCtx    context.Context // 链接预取后台任务的生命周期（Stop 时取消）
+	prefetchCancel context.CancelFunc
 }
 
 // prefetchSem 限制并发预取 goroutine（导入大批量时防止洪峰）。
 var prefetchSem = make(chan struct{}, 4)
 
 func NewPostService(db *sql.DB, q repo.Querier, publicURL, metingAPI string) *PostService {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &PostService{
 		db: db, q: q, publicURL: publicURL, metingAPI: metingAPI,
-		fetch:   unfurl.NewFetcher(),
-		trusted: unfurl.NewUnrestrictedFetcher(),
+		fetch:       unfurl.NewFetcher(),
+		trusted:     unfurl.NewUnrestrictedFetcher(),
+		prefetchCtx: ctx, prefetchCancel: cancel,
 	}
 }
+
+// Stop 取消进行中的链接预取（关库前调用）。
+func (s *PostService) Stop() { s.prefetchCancel() }
 
 // SetMetingAPI 运行时更新音乐解析端点（设置页保存后立即生效）。
 func (s *PostService) SetMetingAPI(url string) {
@@ -114,28 +122,36 @@ func (s *PostService) emit(event string, payload any) {
 }
 
 // prefetchLinks 发布/编辑后异步抓取正文链接与扩展卡片的预览数据（不阻塞、失败静默、并发上限 4）。
+// 每个 URL 独立 30s 超时（共享超时会让首个慢链接耗尽后续预算），生命周期受 Stop 控制。
 func (s *PostService) prefetchLinks(contentHTML string, extra []string) {
 	urls := append(unfurl.BareURLs(contentHTML), extra...)
 	if len(urls) == 0 {
 		return
 	}
 	go func() {
-		prefetchSem <- struct{}{}
+		select {
+		case prefetchSem <- struct{}{}:
+		case <-s.prefetchCtx.Done():
+			return
+		}
 		defer func() { <-prefetchSem }()
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
 		for _, u := range urls {
+			if s.prefetchCtx.Err() != nil {
+				return
+			}
+			ctx, cancel := context.WithTimeout(s.prefetchCtx, 30*time.Second)
 			if _, err := s.q.GetLinkPreview(ctx, u); err == nil {
+				cancel()
 				continue // 已有缓存
 			}
 			pv, err := unfurl.Resolve(ctx, u, s.getMetingAPI(), s.fetch, s.trusted)
-			if err != nil || pv == nil {
-				continue
+			if err == nil && pv != nil {
+				_ = s.q.UpsertLinkPreview(ctx, repo.UpsertLinkPreviewParams{
+					Url: u, Provider: pv.Provider, Title: pv.Title,
+					Cover: pv.Cover, EmbedHtml: pv.EmbedHTML, FetchedAt: time.Now().Unix(),
+				})
 			}
-			_ = s.q.UpsertLinkPreview(ctx, repo.UpsertLinkPreviewParams{
-				Url: u, Provider: pv.Provider, Title: pv.Title,
-				Cover: pv.Cover, EmbedHtml: pv.EmbedHTML, FetchedAt: time.Now().Unix(),
-			})
+			cancel()
 		}
 	}()
 }
@@ -191,6 +207,9 @@ func (s *PostService) Create(ctx context.Context, authorID int64, p CreateParams
 		return nil, errors.New("内容不能为空")
 	}
 
+	if len(p.ContentMD) > maxContentBytes {
+		return nil, errors.New("内容过长")
+	}
 	post, err := s.createWithDeps(ctx, authorID, p, html, blocks, attIDs)
 	if err != nil {
 		return nil, err
@@ -198,9 +217,13 @@ func (s *PostService) Create(ctx context.Context, authorID int64, p CreateParams
 
 	s.prefetchLinks(post.ContentHtml, blockURLs(blocks))
 	dto, err := s.assemble(ctx, post)
-	if err == nil {
-		s.emit("post.created", dto)
+	if err != nil {
+		// 装配失败时回删刚落库的帖子（post_tags/attachments 行级联删除，媒体文件
+		// 由媒体库孤儿清理兜底）：否则无幂等键的客户端重试会造成重复发帖。
+		_, _ = s.q.DeletePost(ctx, post.ID)
+		return nil, fmt.Errorf("assemble: %w", err)
 	}
+	s.emit("post.created", dto)
 	return dto, err
 }
 
@@ -299,10 +322,12 @@ func mergeTags(contentMD string, explicit []string) []string {
 		seen[tag] = true
 		out = append(out, tag)
 	}
-	for _, tag := range ExtractTags(contentMD) {
+	// 显式标签（导入 frontmatter）优先占位，正文 #tag 随后；否则显式标签
+	// 会被先到的高频正文标签挤出 16 个上限。
+	for _, tag := range explicit {
 		add(tag)
 	}
-	for _, tag := range explicit {
+	for _, tag := range ExtractTags(contentMD) {
 		add(tag)
 	}
 	return out
@@ -337,6 +362,9 @@ func (s *PostService) Update(ctx context.Context, p UpdateParams) (*PostDTO, err
 		return nil, ErrNotFound
 	}
 
+	if p.ContentMD != nil && len(*p.ContentMD) > maxContentBytes {
+		return nil, errors.New("内容过长")
+	}
 	params := repo.UpdatePostParams{ID: p.ID, EditedAt: util.NullInt64(time.Now())}
 	if p.ContentMD != nil && *p.ContentMD != post.ContentMd {
 		html, err := RenderHTML(*p.ContentMD)
@@ -368,8 +396,16 @@ func (s *PostService) Update(ctx context.Context, p UpdateParams) (*PostDTO, err
 	}
 
 	// UpdatePost + 标签重建在同一事务：中途失败不丢旧标签。
+	// 事务内重读旧内容：并发 PATCH 时以最新状态判定显式标签，缩小丢失更新窗口
+	//（无版本列，单作者场景下 last-write-wins 是可接受取舍）。
 	var updated repo.Post
 	err = s.inTx(ctx, func(txq repo.Querier) error {
+		// 事务内、UPDATE 之前重读旧内容：并发 PATCH 时以最新状态判定显式标签，
+		// 缩小丢失更新窗口（无版本列，单作者场景下 last-write-wins 是可接受取舍）。
+		fresh, err := txq.GetPost(ctx, p.ID)
+		if err != nil {
+			return err
+		}
 		up, err := txq.UpdatePost(ctx, params)
 		if err != nil {
 			return fmt.Errorf("update post: %w", err)
@@ -378,7 +414,7 @@ func (s *PostService) Update(ctx context.Context, p UpdateParams) (*PostDTO, err
 		if params.ContentMd.Valid {
 			// 保留不在旧正文里的标签（胶囊 frontmatter/显式标签），正文标签按新内容重建。
 			oldBodyTags := map[string]bool{}
-			for _, tag := range ExtractTags(post.ContentMd) {
+			for _, tag := range ExtractTags(fresh.ContentMd) {
 				oldBodyTags[tag] = true
 			}
 			rows, err := txq.ListPostTags(ctx, p.ID)
@@ -421,7 +457,6 @@ func (s *PostService) Delete(ctx context.Context, id string, store media.Storage
 	} else if n == 0 {
 		return ErrNotFound
 	}
-	s.emit("post.deleted", map[string]string{"id": id})
 	for _, a := range atts {
 		for _, key := range []string{a.StorageKey, a.ThumbPath} {
 			if key == "" {
@@ -436,6 +471,8 @@ func (s *PostService) Delete(ctx context.Context, id string, store media.Storage
 			_ = local.Delete(ctx, a.PosterPath)
 		}
 	}
+	// 事件在数据与文件清理完成后发出，订阅者不会看到已删除的附件文件。
+	s.emit("post.deleted", map[string]string{"id": id})
 	return nil
 }
 
@@ -474,15 +511,8 @@ func (s *PostService) Search(ctx context.Context, query string, limit int) ([]*P
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	dtos := make([]*PostDTO, 0, len(posts))
-	for _, post := range posts {
-		dto, err := s.assemble(ctx, post)
-		if err != nil {
-			return nil, err
-		}
-		dtos = append(dtos, dto)
-	}
-	return dtos, nil
+	dtos, _, err := s.assembleMany(ctx, posts, false)
+	return dtos, err
 }
 
 type ListParams struct {
@@ -496,6 +526,10 @@ type ListParams struct {
 
 // maxULID 大于任何合法 ULID（ULID 字母表中 'Z' 最大），空游标第二维时使用。
 const maxULID = "ZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+
+// maxContentBytes 限制 content_md 体积（64KB）：「说说」是轻内容，同时约束
+// 渲染、FTS 与 DTO 装配的成本上限。
+const maxContentBytes = 64 << 10
 
 func (p *ListParams) normalize() {
 	if p.Limit <= 0 || p.Limit > 50 {
@@ -526,6 +560,7 @@ func (s *PostService) List(ctx context.Context, p ListParams) ([]*PostDTO, bool,
 		posts []repo.Post
 		err   error
 	)
+	// 多取一条判定 has_more，避免"恰好整页"时误报（无 count 查询的权衡）。
 	// 组合筛选（日期 / 多标签）走 json_each 参数化查询；默认时间线保持原查询。
 	if len(tags) > 0 || p.From > 0 || p.To > 0 {
 		tagsJSON, _ := json.Marshal(tags)
@@ -536,37 +571,64 @@ func (s *PostService) List(ctx context.Context, p ListParams) ([]*PostDTO, bool,
 			TagsJson: string(tagsJSON),
 			Before:   p.Before,
 			BeforeID: p.BeforeID,
-			Limit:    int64(p.Limit),
+			Limit:    int64(p.Limit + 1),
 		})
 		if err != nil {
 			return nil, false, fmt.Errorf("list filtered posts: %w", err)
 		}
-		dtos := make([]*PostDTO, 0, len(posts))
-		for _, post := range posts {
-			dto, err := s.assemble(ctx, post)
-			if err != nil {
-				return nil, false, err
-			}
-			dtos = append(dtos, dto)
+	} else {
+		posts, err = s.q.ListPosts(ctx, repo.ListPostsParams{Before: p.Before, BeforeID: p.BeforeID, Limit: int64(p.Limit + 1)})
+		if err != nil {
+			return nil, false, fmt.Errorf("list posts: %w", err)
 		}
-		return dtos, len(posts) == p.Limit, nil
 	}
-	posts, err = s.q.ListPosts(ctx, repo.ListPostsParams{Before: p.Before, BeforeID: p.BeforeID, Limit: int64(p.Limit)})
-	if err != nil {
-		return nil, false, fmt.Errorf("list posts: %w", err)
+	hasMore := len(posts) > p.Limit
+	if hasMore {
+		posts = posts[:p.Limit]
 	}
+	return s.assembleMany(ctx, posts, hasMore)
+}
+
+// assembleMany 批量装配：标签与附件按整页帖子 ID 各查一次，替代逐帖两次查询；
+// 空页返回 items=[]（非 null）。
+func (s *PostService) assembleMany(ctx context.Context, posts []repo.Post, hasMore bool) ([]*PostDTO, bool, error) {
 	dtos := make([]*PostDTO, 0, len(posts))
+	if len(posts) == 0 {
+		return dtos, hasMore, nil
+	}
+	ids := make([]string, 0, len(posts))
 	for _, post := range posts {
-		dto, err := s.assemble(ctx, post)
+		ids = append(ids, post.ID)
+	}
+	idsJSON, _ := json.Marshal(ids)
+
+	tagsBy := map[string][]string{}
+	tagRows, err := s.q.TagsByPostIDs(ctx, string(idsJSON))
+	if err != nil {
+		return nil, false, err
+	}
+	for _, r := range tagRows {
+		tagsBy[r.PostID] = append(tagsBy[r.PostID], r.Name)
+	}
+	attsBy := map[string][]repo.Attachment{}
+	attRows, err := s.q.AttachmentsByPostIDs(ctx, string(idsJSON))
+	if err != nil {
+		return nil, false, err
+	}
+	for _, a := range attRows {
+		attsBy[a.PostID.String] = append(attsBy[a.PostID.String], a)
+	}
+	for _, post := range posts {
+		dto, err := s.buildDTO(ctx, post, tagsBy[post.ID], attsBy[post.ID])
 		if err != nil {
 			return nil, false, err
 		}
 		dtos = append(dtos, dto)
 	}
-	return dtos, len(posts) == p.Limit, nil
+	return dtos, hasMore, nil
 }
 
-// assemble 装配 DTO：标签 + 附件 + 卡片。
+// assemble 装配单帖 DTO：标签 + 附件 + 卡片（Get/Create/Update 路径）。
 func (s *PostService) assemble(ctx context.Context, post repo.Post) (*PostDTO, error) {
 	tagRows, err := s.q.ListPostTags(ctx, post.ID)
 	if err != nil {
@@ -581,6 +643,11 @@ func (s *PostService) assemble(ctx context.Context, post repo.Post) (*PostDTO, e
 	if err != nil {
 		return nil, err
 	}
+	return s.buildDTO(ctx, post, tags, attRows)
+}
+
+// buildDTO 装配 DTO 主体：标签与附件行已由调用方查出（单帖或整页批量）。
+func (s *PostService) buildDTO(ctx context.Context, post repo.Post, tags []string, attRows []repo.Attachment) (*PostDTO, error) {
 	atts := make([]AttachmentDTO, 0, len(attRows))
 	for _, a := range attRows {
 		atts = append(atts, s.attachmentDTO(a))
@@ -744,11 +811,24 @@ func (s *PostService) resolveBlocks(ctx context.Context, raw string) []PostBlock
 		return []PostBlock{}
 	}
 	meting := s.getMetingAPI()
+	// 单帖内缓存：同一 URL（如音乐卡的标题与音频两次取值）只查一次 DB。
+	previews := map[string]repo.LinkPreview{}
+	lookup := func(url string) (repo.LinkPreview, bool) {
+		if pv, ok := previews[url]; ok {
+			return pv, true
+		}
+		pv, err := s.q.GetLinkPreview(ctx, url)
+		if err != nil {
+			return repo.LinkPreview{}, false
+		}
+		previews[url] = pv
+		return pv, true
+	}
 	out := make([]PostBlock, 0, len(blocks))
 	for _, b := range blocks {
 		switch b.Type {
 		case "music", "github", "website", "video":
-			if pv, err := s.q.GetLinkPreview(ctx, b.URL); err == nil {
+			if pv, ok := lookup(b.URL); ok {
 				b.Title, b.Cover, b.Provider = pv.Title, pv.Cover, pv.Provider
 				if b.Type == "video" && (strings.HasPrefix(pv.EmbedHtml, "https://") || strings.HasPrefix(pv.EmbedHtml, "http://")) {
 					b.EmbedURL = pv.EmbedHtml
@@ -763,7 +843,7 @@ func (s *PostService) resolveBlocks(ctx context.Context, raw string) []PostBlock
 				}
 			}
 			if b.Type == "music" && meting != "" {
-				if pv, err := s.q.GetLinkPreview(ctx, b.URL); err == nil &&
+				if pv, ok := lookup(b.URL); ok &&
 					(strings.HasPrefix(pv.EmbedHtml, "http://") || strings.HasPrefix(pv.EmbedHtml, "https://")) {
 					b.AudioURL = pv.EmbedHtml
 				} else if server, _, id, err := unfurl.MusicSource(b.URL); err == nil {
