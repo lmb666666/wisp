@@ -439,5 +439,10 @@
     "nextMonth": "下个月",
     "loading": "加载中…",
     "loadFailed": "心情加载失败"
+  },
+  "error": {
+    "title": "页面出错了",
+    "unknown": "发生了意外错误。",
+    "retry": "刷新重试"
   }
 }

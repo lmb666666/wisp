@@ -11,6 +11,9 @@ export interface OutboxItem {
 const outboxStore = createStore("wisp-outbox", "outbox")
 const LIST_KEY = "items"
 
+// 队列上限：离线积压过多时宁可让发布框保留内容并提示，也不无限堆积。
+const MAX_ITEMS = 50
+
 async function read(): Promise<OutboxItem[]> {
   return (await get<OutboxItem[]>(LIST_KEY, outboxStore)) ?? []
 }
@@ -19,13 +22,25 @@ async function write(items: OutboxItem[]): Promise<void> {
   await set(LIST_KEY, items, outboxStore)
 }
 
+// 读改写全部走串行链：flushOutbox 逐条 remove 与并发 enqueue 交错时，
+// 不会用旧数组整体覆盖而静默丢条目（跨标签页由服务端幂等键兜底）。
+let chain: Promise<unknown> = Promise.resolve()
+function serialized<T>(fn: () => Promise<T>): Promise<T> {
+  const next = chain.then(fn, fn)
+  chain = next.catch(() => {})
+  return next
+}
+
 export const outbox = {
-  /** 入队（网络失败时调用），返回幂等键。 */
+  /** 入队（网络失败时调用）；队列满时抛错，由调用方提示用户保留内容。 */
   async enqueue(key: string, input: CreatePostInput): Promise<void> {
-    const items = await read()
-    if (items.some((i) => i.key === key)) return
-    items.push({ key, input, createdAt: Date.now() })
-    await write(items)
+    return serialized(async () => {
+      const items = await read()
+      if (items.some((i) => i.key === key)) return
+      if (items.length >= MAX_ITEMS) throw new Error("outbox full")
+      items.push({ key, input, createdAt: Date.now() })
+      await write(items)
+    })
   },
 
   async list(): Promise<OutboxItem[]> {
@@ -37,7 +52,16 @@ export const outbox = {
   },
 
   async remove(key: string): Promise<void> {
-    await write((await read()).filter((i) => i.key !== key))
+    return serialized(async () => {
+      await write((await read()).filter((i) => i.key !== key))
+    })
+  },
+
+  /** 清空队列（登出时调用：未发内容属于该账号，不能留给共享浏览器的下一位使用者）。 */
+  async clear(): Promise<void> {
+    return serialized(async () => {
+      await write([])
+    })
   },
 }
 

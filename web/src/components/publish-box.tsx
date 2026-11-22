@@ -244,7 +244,10 @@ function PublishBoxInner({
         },
         onError: (err) => {
           const status = (err as { statusCode?: number }).statusCode
-          if (!status) {
+          // 与 flushOutbox 的瞬态判定保持一致：网络错误与 5xx/408/429 都入队待发，
+          // 其余 4xx 是请求本身的问题，只提示（内容留在编辑框）。
+          const transient = !status || status >= 500 || status === 408 || status === 429
+          if (transient) {
             outbox
               .enqueue(key, input)
               .then(() => {
@@ -256,7 +259,7 @@ function PublishBoxInner({
                 onPublished()
               })
               .catch(() => {
-                // 队列写失败（隐私模式/存储满）：内容保留在编辑框，不静默丢失
+                // 队列写失败（隐私模式/存储满/队列已满）：内容保留在编辑框，不静默丢失
                 toast.error(t("publish.offlineSaveFailed"))
               })
           } else {

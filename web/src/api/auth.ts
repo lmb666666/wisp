@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { api, apiError, type Me, type TokenRow } from "@/api/client"
+import { clearDraft } from "@/api/drafts"
+import { outbox } from "@/api/outbox"
 
 export function useMe() {
   return useQuery({
@@ -51,6 +53,9 @@ export function useLogout() {
     onSuccess: () => {
       qc.clear() // 清掉私密时间线/详情等缓存，避免共享浏览器上登出后仍可见
       qc.setQueryData(["me"], null)
+      // 未发内容属于该账号：登出即清，不能留给共享浏览器的下一位使用者
+      void outbox.clear().catch(() => {})
+      void clearDraft().catch(() => {})
       // Service Worker 的 "media" 运行时缓存（CacheFirst）存着私密图片 blob；
       // 只删它，不动 workbox precache（删了会破坏离线壳）
       if ("caches" in window) {

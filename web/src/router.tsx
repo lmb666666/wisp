@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router"
 
 import { RootLayout } from "@/components/root-layout"
+import { RouteError } from "@/components/route-error"
 import { Home } from "@/routes/home"
 import { Login } from "@/routes/login"
 import { SettingsLayout } from "@/routes/settings"
@@ -120,6 +121,7 @@ export const router = createRouter({
     ]),
     shareRoute,
   ]),
+  defaultErrorComponent: RouteError,
 })
 
 declare module "@tanstack/react-router" {

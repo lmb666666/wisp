@@ -441,5 +441,10 @@
     "nextMonth": "Next month",
     "loading": "Loading…",
     "loadFailed": "Couldn't load moods."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "unknown": "An unexpected error occurred.",
+    "retry": "Reload"
   }
 }
