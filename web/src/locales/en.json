@@ -98,7 +98,8 @@
     "share": "Share",
     "shareTitle": "Wisp post",
     "linkCopied": "Link copied",
-    "copyFailed": "Couldn't copy. Please copy the address bar URL manually."
+    "copyFailed": "Couldn't copy. Please copy the address bar URL manually.",
+    "viewImage": "View image"
   },
   "post": {
     "back": "Timeline",

@@ -1,18 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import type { Editor } from "@tiptap/react"
-import {
-  ArrowLeft,
-  GitBranch,
-  Globe2,
-  Loader2,
-  MapPin,
-  Music4,
-  PencilLine,
-  Trash2,
-  Video,
-  X,
-} from "lucide-react"
-import { Suspense, lazy, useState } from "react"
+import { ArrowLeft, Loader2, PencilLine, Trash2, X } from "lucide-react"
+import { Suspense, lazy, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -20,6 +9,7 @@ import { apiError, useMe } from "@/api/auth"
 import { api } from "@/api/client"
 import { useDeletePost, usePost, useUpdatePost } from "@/api/posts"
 import { BlockDialog, type BlockInput, type BlockKind } from "@/components/block-dialog"
+import { BlockIcon } from "@/components/block-icon"
 import { EditorToolbar } from "@/components/editor-toolbar"
 import { PostCard } from "@/components/post-card"
 import { Button } from "@/components/ui/button"
@@ -48,6 +38,17 @@ export function PostPage() {
   const del = useDeletePost(postId)
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
+
+  // 标签页标题跟随内容；离开时还原
+  useEffect(() => {
+    if (!post) return
+    const prev = document.title
+    const excerpt = post.content_md.replace(/\s+/g, " ").trim().slice(0, 40)
+    document.title = excerpt ? `${excerpt} · Wisp` : "Wisp"
+    return () => {
+      document.title = prev
+    }
+  }, [post])
 
   if (isLoading)
     return <p className="text-muted-foreground py-16 text-center text-sm">{t("common.loading")}</p>
@@ -227,17 +228,7 @@ function EditPanel({
               key={i}
               className="border-border flex items-center gap-2 rounded-lg border px-3 py-1.5"
             >
-              {b.type === "music" ? (
-                <Music4 className="text-muted-foreground size-4" />
-              ) : b.type === "github" ? (
-                <GitBranch className="text-muted-foreground size-4" />
-              ) : b.type === "website" ? (
-                <Globe2 className="text-muted-foreground size-4" />
-              ) : b.type === "video" ? (
-                <Video className="text-muted-foreground size-4" />
-              ) : (
-                <MapPin className="text-muted-foreground size-4" />
-              )}
+              <BlockIcon type={b.type} className="text-muted-foreground size-4" />
               <span className="min-w-0 flex-1 truncate text-xs">
                 {b.type === "location" ? b.name : b.url}
               </span>

@@ -18,6 +18,13 @@ void i18next.use(initReactI18next).init({
   interpolation: { escapeValue: false }, // React 已转义
 })
 
+// <html lang> 与语言状态保持同步（无障碍：读屏按正确语言发音）
+function applyLang(lng: string) {
+  document.documentElement.lang = lng === "zh-CN" ? "zh-CN" : "en"
+}
+void i18next.on("languageChanged", applyLang)
+applyLang(i18next.language)
+
 export function toggleLanguage() {
   const next = i18next.language === "zh-CN" ? "en" : "zh-CN"
   void i18next.changeLanguage(next)

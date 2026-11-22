@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { fmtBytes } from "@/lib/format"
 
 interface MediaItem {
   id: string
@@ -44,13 +45,6 @@ interface MediaStats {
   by_kind: Record<string, { count: number; bytes: number }>
 }
 
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n}B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)}MB`
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)}GB`
-}
-
 /** 设置 · 数据：媒体库（筛选、占用统计、无主文件清理）。 */
 export function MediaSection() {
   const { t } = useTranslation()
@@ -65,19 +59,24 @@ export function MediaSection() {
   })
   const media = useInfiniteQuery({
     queryKey: ["media", kind, orphanOnly],
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      api<{ items: MediaItem[]; total: number }>("/admin/media", {
+    // 游标分页：删除条目后 offset 会让后续页跳/重，游标边界稳定
+    initialPageParam: "",
+    queryFn: ({ pageParam }) => {
+      const [ts, id] = String(pageParam).split(":")
+      return api<{ items: MediaItem[]; total: number; has_more: boolean }>("/admin/media", {
         params: {
           kind: kind === "all" ? undefined : kind,
           orphan: orphanOnly ? 1 : undefined,
           limit: 24,
-          offset: pageParam,
+          before_ts: ts || undefined,
+          before_id: ts ? (id ?? undefined) : undefined,
         },
-      }),
-    getNextPageParam: (last, pages) => {
-      const loaded = pages.reduce((n, p) => n + p.items.length, 0)
-      return loaded < last.total ? loaded : undefined
+      })
+    },
+    getNextPageParam: (last) => {
+      const lastItem = last.items.at(-1)
+      if (!last.has_more || !lastItem) return undefined
+      return `${lastItem.created_at}:${lastItem.id}`
     },
   })
   const del = useMutation({

@@ -1,7 +1,7 @@
 import imageCompression from "browser-image-compression"
 import type { Editor } from "@tiptap/react"
 import { useQuery } from "@tanstack/react-query"
-import { GitBranch, Globe2, Loader2, MapPin, Music4, Send, Video, X } from "lucide-react"
+import { Loader2, Send, X } from "lucide-react"
 import { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -11,6 +11,7 @@ import { clearDraft, loadDraft, saveDraft } from "@/api/drafts"
 import { outbox } from "@/api/outbox"
 import { useCreatePost } from "@/api/posts"
 import { BlockDialog, type BlockInput, type BlockKind } from "@/components/block-dialog"
+import { BlockIcon } from "@/components/block-icon"
 import { EditorToolbar } from "@/components/editor-toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -152,7 +153,11 @@ function PublishBoxInner({
       firstRender.current = false
       return
     }
-    const timer = setTimeout(() => saveDraft({ content: markdown, attachments, blocks }), 400)
+    const timer = setTimeout(() => {
+      saveDraft({ content: markdown, attachments, blocks }).catch(() => {
+        // 草稿写失败（配额满/隐私模式）：保留当前编辑内容即可，不产生未处理 rejection
+      })
+    }, 400)
     return () => clearTimeout(timer)
   }, [markdown, attachments, blocks])
 
@@ -307,17 +312,7 @@ function PublishBoxInner({
               key={i}
               className="border-border flex items-center gap-2 rounded-xl border px-3 py-2"
             >
-              {b.type === "music" ? (
-                <Music4 className="text-muted-foreground size-4 shrink-0" />
-              ) : b.type === "github" ? (
-                <GitBranch className="text-muted-foreground size-4 shrink-0" />
-              ) : b.type === "website" ? (
-                <Globe2 className="text-muted-foreground size-4 shrink-0" />
-              ) : b.type === "video" ? (
-                <Video className="text-muted-foreground size-4 shrink-0" />
-              ) : (
-                <MapPin className="text-muted-foreground size-4 shrink-0" />
-              )}
+              <BlockIcon type={b.type} className="text-muted-foreground size-4 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">
                   {b.type === "location"

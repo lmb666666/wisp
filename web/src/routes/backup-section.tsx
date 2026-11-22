@@ -8,6 +8,7 @@ import { api, apiError } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { fmtBytes } from "@/lib/format"
 
 interface BackupSettings {
   enabled: boolean
@@ -25,12 +26,6 @@ interface BackupFile {
 interface BackupResp {
   settings: BackupSettings
   backups: BackupFile[]
-}
-
-function fmtBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)}MB`
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)}GB`
 }
 
 /** 设置 · 数据：自动备份（数据库快照）设置与手动运行。 */

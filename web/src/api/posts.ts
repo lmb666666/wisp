@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import type { InfiniteData } from "@tanstack/react-query"
 
 import { api, type Post, type PostFilters, type PostListResp } from "@/api/client"
+import { randomUUID } from "@/lib/id"
 
 const PAGE_SIZE = 20
 
@@ -100,7 +101,8 @@ export function useCreatePost() {
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: ["posts"] })
       const optimistic: Post = {
-        id: `optimistic-${Date.now()}`,
+        // UUID 而非时间戳：连发两帖同毫秒占位 id 撞车会误删对方的占位
+        id: `optimistic-${randomUUID()}`,
         content_md: input.content_md,
         content_html: optimisticHTML(input.content_md),
         visibility: (input.visibility as Post["visibility"]) ?? "public",
@@ -144,6 +146,9 @@ export function useCreatePost() {
       void qc.invalidateQueries({ queryKey: ["tags"] })
       void qc.invalidateQueries({ queryKey: ["search"] })
       void qc.invalidateQueries({ queryKey: ["overview"] })
+      // 新帖绑定附件后媒体库的 orphan 统计/列表要跟上
+      void qc.invalidateQueries({ queryKey: ["media"] })
+      void qc.invalidateQueries({ queryKey: ["media-stats"] })
       // 服务端异步抓取链接/音乐卡片；冷启动的 Meting 可能较慢，补两次刷新
       for (const delay of [1600, 9000]) {
         window.setTimeout(() => {
@@ -179,6 +184,8 @@ export function useDeletePost(id: string) {
       qc.invalidateQueries({ queryKey: ["tags"] })
       qc.invalidateQueries({ queryKey: ["search"] })
       qc.invalidateQueries({ queryKey: ["overview"] })
+      void qc.invalidateQueries({ queryKey: ["media"] })
+      void qc.invalidateQueries({ queryKey: ["media-stats"] })
     },
   })
 }

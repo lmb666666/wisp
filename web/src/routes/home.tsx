@@ -31,19 +31,21 @@ export function Home() {
 function Timeline({ filters, authed }: { filters: PostFilters; authed: boolean }) {
   const { t } = useTranslation()
   const posts = usePosts(filters)
+  // 解构稳定值：依赖整个 posts 对象会每次渲染重建 observer
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = posts
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
     const io = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && posts.hasNextPage && !posts.isFetchingNextPage) {
-        posts.fetchNextPage()
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
       }
     })
     io.observe(el)
     return () => io.disconnect()
-  }, [posts.hasNextPage, posts.isFetchingNextPage, posts.fetchNextPage, posts])
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const groups = useMemo(() => {
     const items = posts.data?.pages.flatMap((p) => p.items) ?? []

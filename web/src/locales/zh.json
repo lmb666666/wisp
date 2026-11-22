@@ -98,7 +98,8 @@
     "share": "分享",
     "shareTitle": "Wisp 说说",
     "linkCopied": "链接已复制",
-    "copyFailed": "复制失败，请手动复制地址栏链接。"
+    "copyFailed": "复制失败，请手动复制地址栏链接。",
+    "viewImage": "查看大图"
   },
   "post": {
     "back": "时间线",
@@ -412,10 +413,10 @@
     "hoursMinutes": "{{h}} 小时 {{m}} 分",
     "minutes": "{{m}} 分钟",
     "moodTitle": "{{year}} 年心情",
-    "moodDays": "{{count}} 天",
     "moodEmpty": "今年还没有心情记录",
     "moodView": "查看心情",
-    "lastBackupAt": "上次备份：{{time}}"
+    "lastBackupAt": "上次备份：{{time}}",
+    "moodDays_other": "{{count}} 天"
   },
   "mood": {
     "prompt": "今天心情如何？",
@@ -430,7 +431,6 @@
     "tired": "疲惫",
     "low": "低落",
     "tab": "心情",
-    "recordedDays": "记录 {{count}} 天",
     "empty": "今年还没有心情记录",
     "backfillHint": "点选日期可补记",
     "distribution": "心情分布",
@@ -438,7 +438,8 @@
     "prevMonth": "上个月",
     "nextMonth": "下个月",
     "loading": "加载中…",
-    "loadFailed": "心情加载失败"
+    "loadFailed": "心情加载失败",
+    "recordedDays_other": "记录 {{count}} 天"
   },
   "error": {
     "title": "页面出错了",

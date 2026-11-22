@@ -3,6 +3,9 @@ export function pad2(n: number): string {
   return String(n).padStart(2, "0")
 }
 
+/** 客户端时区偏移（分钟，东八区为 +480）。服务端按它聚合日数据，避免容器 UTC 与浏览器本地日期错位。 */
+export const clientTZOffset = -new Date().getTimezoneOffset()
+
 /** 本地时区的 YYYY-MM-DD（心情按作者浏览器日期存储）。 */
 export function dateKey(tsSeconds: number): string {
   const d = new Date(tsSeconds * 1000)

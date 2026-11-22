@@ -13,6 +13,7 @@ export function useOutboxFlusher(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return
 
+    let lastWarn = 0
     const run = async () => {
       const { sent, needsAuth, dropped } = await flushOutbox()
       if (sent > 0) {
@@ -20,8 +21,11 @@ export function useOutboxFlusher(enabled: boolean) {
         qc.invalidateQueries({ queryKey: ["tags"] })
       }
       if (needsAuth) {
-        // 只在真的有内容被挡住时提示（下次冲刷有结果仍会提醒）
-        toast.warning(t("outbox.needsAuth"))
+        // 同一会话 60s 内只提醒一次：30s 的重试节奏不该变成 toast 轰炸
+        if (Date.now() - lastWarn > 60_000) {
+          lastWarn = Date.now()
+          toast.warning(t("outbox.needsAuth"))
+        }
       }
       if (dropped > 0) {
         toast.error(t("outbox.dropped"))

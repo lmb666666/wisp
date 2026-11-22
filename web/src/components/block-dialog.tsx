@@ -81,13 +81,16 @@ function BlockDialogInner({
   const [error, setError] = useState("")
   const searchCtrl = useRef<AbortController | null>(null)
   const reverseCtrl = useRef<AbortController | null>(null)
-  useEffect(
-    () => () => {
+  // geolocation 回调不可取消，卸载后（8s 超时窗口内关闭）不再 setState
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
       searchCtrl.current?.abort()
       reverseCtrl.current?.abort()
-    },
-    [],
-  )
+    }
+  }, [])
 
   const geo = useQuery({
     queryKey: ["geo-settings"],
@@ -108,6 +111,7 @@ function BlockDialogInner({
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!alive.current) return
         const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         const coordText = formatCoords(c)
         setCoords(c)
@@ -127,6 +131,7 @@ function BlockDialogInner({
         }
       },
       () => {
+        if (!alive.current) return
         setError(t("blocks.geoFailed"))
         setLocating(false)
       },

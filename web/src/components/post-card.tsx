@@ -10,6 +10,7 @@ import type { Attachment, Post, PostBlock } from "@/api/client"
 import { BlockShell } from "@/components/block-shell"
 import { LocationCard } from "@/components/location-card"
 import { VideoCard, WebsiteCard } from "@/components/link-blocks"
+import { osmURL } from "@/lib/geo"
 import { sharePost } from "@/lib/share"
 import { cn } from "@/lib/utils"
 
@@ -199,6 +200,7 @@ export function AttachmentGrid({ attachments }: { attachments: Attachment[] }) {
 }
 
 function ImageGrid({ images }: { images: Attachment[] }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(-1)
   const cols = images.length === 1 ? 1 : images.length <= 4 ? 2 : 3
 
@@ -214,6 +216,7 @@ function ImageGrid({ images }: { images: Attachment[] }) {
           <button
             type="button"
             key={img.id}
+            aria-label={t("card.viewImage")}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -250,7 +253,7 @@ function ImageGrid({ images }: { images: Attachment[] }) {
             open
             close={() => setOpen(-1)}
             index={Math.max(open, 0)}
-            slides={images.map((img) => ({ src: img.url }))}
+            slides={images.map((img) => ({ src: img.url, alt: img.id }))}
           />
         </Suspense>
       )}
@@ -298,11 +301,4 @@ function BlocksSection({ blocks }: { blocks: PostBlock[] }) {
       })}
     </div>
   )
-}
-
-/** 位置链接：坐标直连地图，文本走 OpenStreetMap 搜索。 */
-function osmURL(loc: string): string {
-  const m = /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/.exec(loc.trim())
-  if (m) return `https://www.openstreetmap.org/?mlat=${m[1]}&mlon=${m[2]}#map=15/${m[1]}/${m[2]}`
-  return "https://www.openstreetmap.org/search?query=" + encodeURIComponent(loc)
 }
