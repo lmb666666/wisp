@@ -246,16 +246,19 @@ LEFT JOIN posts p ON p.id = a.post_id
 WHERE (?1 = '' OR a.kind = ?1)
   AND (?2 = '' OR a.storage = ?2)
   AND (?3 = 0 OR a.post_id IS NULL)
+  AND (?4 = 0 OR a.created_at < ?4
+       OR (a.created_at = ?4 AND a.id < ?5))
 ORDER BY a.created_at DESC, a.id DESC
-LIMIT ?5 OFFSET ?4
+LIMIT ?6
 `
 
 type ListMediaParams struct {
-	Kind    interface{}
-	Storage interface{}
-	Orphan  interface{}
-	Offset  int64
-	Limit   int64
+	Kind     interface{}
+	Storage  interface{}
+	Orphan   interface{}
+	BeforeTs interface{}
+	BeforeID string
+	Limit    int64
 }
 
 type ListMediaRow struct {
@@ -275,12 +278,17 @@ type ListMediaRow struct {
 	PostContent    sql.NullString
 }
 
+// ListMedia: cursor pagination (before_ts+before_id composite cursor, 0/empty =
+// first page). Offsets shift across pages after deletions; cursors keep page
+// boundaries stable. Imported attachments may have created_at inconsistent with
+// their id timestamp, so a bare id cursor would be unsafe.
 func (q *Queries) ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMediaRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMedia,
 		arg.Kind,
 		arg.Storage,
 		arg.Orphan,
-		arg.Offset,
+		arg.BeforeTs,
+		arg.BeforeID,
 		arg.Limit,
 	)
 	if err != nil {

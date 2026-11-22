@@ -62,6 +62,10 @@ type Querier interface {
 	ListAllMoods(ctx context.Context) ([]ListAllMoodsRow, error)
 	ListAttachmentOnlyFingerprints(ctx context.Context) ([]ListAttachmentOnlyFingerprintsRow, error)
 	ListFilteredPosts(ctx context.Context, arg ListFilteredPostsParams) ([]Post, error)
+	// ListMedia: cursor pagination (before_ts+before_id composite cursor, 0/empty =
+	// first page). Offsets shift across pages after deletions; cursors keep page
+	// boundaries stable. Imported attachments may have created_at inconsistent with
+	// their id timestamp, so a bare id cursor would be unsafe.
 	ListMedia(ctx context.Context, arg ListMediaParams) ([]ListMediaRow, error)
 	ListMoods(ctx context.Context, arg ListMoodsParams) ([]ListMoodsRow, error)
 	ListPasskeys(ctx context.Context) ([]Passkey, error)

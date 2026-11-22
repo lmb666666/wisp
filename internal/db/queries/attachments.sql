@@ -30,6 +30,10 @@ DELETE FROM attachments WHERE id = ?;
 -- name: SetAttachmentPoster :exec
 UPDATE attachments SET poster_path = ? WHERE id = ?;
 
+-- ListMedia: cursor pagination (before_ts+before_id composite cursor, 0/empty =
+-- first page). Offsets shift across pages after deletions; cursors keep page
+-- boundaries stable. Imported attachments may have created_at inconsistent with
+-- their id timestamp, so a bare id cursor would be unsafe.
 -- name: ListMedia :many
 SELECT a.id, a.kind, a.mime, a.size, a.width, a.height, a.thumb_path, a.storage_key,
        a.storage, a.remote_url, a.post_id, a.created_at, a.thumb_remote_url,
@@ -39,8 +43,10 @@ LEFT JOIN posts p ON p.id = a.post_id
 WHERE (sqlc.arg('kind') = '' OR a.kind = sqlc.arg('kind'))
   AND (sqlc.arg('storage') = '' OR a.storage = sqlc.arg('storage'))
   AND (sqlc.arg('orphan') = 0 OR a.post_id IS NULL)
+  AND (sqlc.arg('before_ts') = 0 OR a.created_at < sqlc.arg('before_ts')
+       OR (a.created_at = sqlc.arg('before_ts') AND a.id < sqlc.arg('before_id')))
 ORDER BY a.created_at DESC, a.id DESC
-LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+LIMIT sqlc.arg('limit');
 
 -- name: CountMedia :one
 SELECT count(*) FROM attachments a

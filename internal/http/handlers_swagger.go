@@ -98,6 +98,62 @@ paths:
     post: { summary: 登出, responses: { "204": { description: OK } } }
   /auth/me:
     get: { summary: 当前身份, responses: { "200": { description: OK } } }
+  /ping:
+    get:
+      security: []
+      summary: 存活探针
+      responses: { "200": { description: OK } }
+  /auth/profile:
+    get:
+      summary: 个人资料（用户名/昵称/Passkey 数）
+      security: [{ sessionCookie: [] }]
+      responses: { "200": { description: OK } }
+    patch:
+      summary: 修改昵称或密码（改密吊销其他会话）
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: { type: string }
+                current_password: { type: string, description: 改密时必填 }
+                new_password: { type: string, description: 与 current_password 同时提供 }
+      responses: { "200": { description: OK }, "401": { description: 当前密码错误 } }
+  /auth/passkey/register/begin:
+    post:
+      summary: 开始 Passkey 注册（返回 WebAuthn 创建选项与仪式 ID）
+      security: [{ sessionCookie: [] }]
+      responses: { "200": { description: OK }, "503": { description: Passkey 未启用 } }
+  /auth/passkey/register/finish:
+    post:
+      summary: 完成 Passkey 注册（query.session 为仪式 ID）
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: session, in: query, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /auth/passkey/login/begin:
+    post:
+      security: []
+      summary: 开始 Passkey 登录（发现式，返回请求选项与仪式 ID）
+      responses: { "200": { description: OK }, "503": { description: Passkey 未启用 } }
+  /auth/passkey/login/finish:
+    post:
+      security: []
+      summary: 完成 Passkey 登录并建立会话（query.session 为仪式 ID）
+      parameters: [{ name: session, in: query, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK }, "401": { description: 仪式失败或过期 } }
+  /auth/passkeys:
+    get:
+      summary: 已注册 Passkey 列表
+      security: [{ sessionCookie: [] }]
+      responses: { "200": { description: OK } }
+  /auth/passkeys/{id}:
+    delete:
+      summary: 删除 Passkey
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: OK } }
   /auth/tokens:
     get: { summary: PAT 列表（仅会话）, responses: { "200": { description: OK } } }
     post:
@@ -323,14 +379,15 @@ paths:
       responses: { "200": { description: zip 流 } }
   /admin/media:
     get:
-      summary: 媒体库列表（仅会话）
+      summary: 媒体库列表（复合游标分页，仅会话）
       security: [{ sessionCookie: [] }]
       parameters:
         - { name: kind, in: query, schema: { type: string, enum: [image, video, audio, file] } }
         - { name: storage, in: query, schema: { type: string } }
         - { name: orphan, in: query, schema: { type: integer, enum: [0, 1] } }
         - { name: limit, in: query, schema: { type: integer, maximum: 200, default: 50 } }
-        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+        - { name: before_ts, in: query, schema: { type: integer, description: 游标 created_at（unix 秒，0 = 首页） } }
+        - { name: before_id, in: query, schema: { type: string, description: 游标附件 id } }
       responses: { "200": { description: OK } }
   /admin/media/stats:
     get:
@@ -364,13 +421,68 @@ paths:
       summary: 地理编码端点配置（Nominatim 兼容；空串禁用搜索/反查）
       security: [{ sessionCookie: [] }]
       responses: { "200": { description: OK } }
+  /admin/settings/meting:
+    get:
+      summary: Meting 音乐解析端点配置（空串禁用音乐卡）
+      security: [{ sessionCookie: [] }]
+      responses: { "200": { description: OK } }
+    put:
+      summary: 保存 Meting 端点（http(s) URL）
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { url: { type: string } } }
+      responses: { "200": { description: OK } }
+  /admin/webhooks:
+    get:
+      summary: Webhook 列表（secret 脱敏）
+      security: [{ sessionCookie: [] }]
+      responses: { "200": { description: OK } }
+    post:
+      summary: 注册 Webhook（secret 仅创建时返回一次；HMAC-SHA256 签名投递）
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url: { type: string, maxLength: 2048 }
+                events:
+                  type: string
+                  description: 逗号分隔（post.created/updated/deleted, mood.updated/deleted）
+      responses: { "201": { description: OK } }
+  /admin/webhooks/{id}:
+    delete:
+      summary: 删除 Webhook
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: OK } }
+  /admin/import:
+    post:
+      summary: 导入旧数据（multipart file + source；≤5000 帖 / ≤256MB，按内容指纹去重）
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [source, file]
+              properties:
+                source: { type: string, enum: [wisp, memos, moments, ech0] }
+                file: { type: string, format: binary }
+      responses: { "200": { description: 导入统计 }, "400": { description: 解析失败 } }
 `
 
-// swaggerUI 极简壳：UI 从 CDN 加载，离线环境直接阅读 /swagger/openapi.yaml。
+// swaggerUI 极简壳：UI 从 CDN 加载（版本与 SRI 固定，防 CDN 篡改），
+// 离线环境直接阅读 /swagger/openapi.yaml。
 const swaggerUI = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"/><title>Wisp API</title>
 <meta name="robots" content="noindex"/>
-<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"/></head>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.35.1/swagger-ui.css" integrity="sha384-WlYgdmXYOOBWL5apwjDEZwN+U3HmXSSu5R6V5aGxEcf7z+KuRNwBhoxKVN1i3D5I" crossorigin="anonymous"/></head>
 <body><div id="swagger"></div>
-<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist@5.35.1/swagger-ui-bundle.js" integrity="sha384-J5eKRXKO1KzUTPkO0GRmGH2WEYUg6SSZlufilxvTwI6nmhLumjNWFMby3QQnyobZ" crossorigin="anonymous"></script>
 <script>SwaggerUIBundle({url:"/swagger/openapi.yaml",dom_id:"#swagger"})</script></body></html>`

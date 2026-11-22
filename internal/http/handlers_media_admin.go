@@ -12,7 +12,8 @@ import (
 	"github.com/lmb666666/wisp/internal/service"
 )
 
-// listMedia GET /admin/media?kind=&orphan=1&limit=&offset=
+// listMedia GET /admin/media?kind=&orphan=1&limit=&before_ts=&before_id=
+// 游标分页：删除条目后 offset 会让后续页跳/重，复合游标边界稳定。
 func (s *Server) listMedia(c echo.Context) error {
 	kind := strings.TrimSpace(c.QueryParam("kind"))
 	if kind != "" && kind != "image" && kind != "video" && kind != "audio" && kind != "file" {
@@ -30,16 +31,20 @@ func (s *Server) listMedia(c echo.Context) error {
 	if limit > 200 {
 		limit = 200
 	}
-	offset, _ := strconv.ParseInt(c.QueryParam("offset"), 10, 64)
-	if offset < 0 {
-		offset = 0
-	}
+	beforeTs, _ := strconv.ParseInt(c.QueryParam("before_ts"), 10, 64)
+	beforeID := strings.TrimSpace(c.QueryParam("before_id"))
 
+	// 多取一条判定 has_more（与时间线分页同策略）
 	rows, err := s.q.ListMedia(c.Request().Context(), repo.ListMediaParams{
-		Kind: any(kind), Storage: any(storage), Orphan: any(orphan), Limit: limit, Offset: offset,
+		Kind: any(kind), Storage: any(storage), Orphan: any(orphan),
+		BeforeTs: any(beforeTs), BeforeID: beforeID, Limit: limit + 1,
 	})
 	if err != nil {
 		return s.internalError(c, err)
+	}
+	hasMore := int64(len(rows)) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 	total, err := s.q.CountMedia(c.Request().Context(), repo.CountMediaParams{
 		Kind: any(kind), Storage: any(storage), Orphan: any(orphan),
@@ -77,7 +82,7 @@ func (s *Server) listMedia(c echo.Context) error {
 		}
 		items = append(items, item)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"items": items, "total": total})
+	return c.JSON(http.StatusOK, map[string]any{"items": items, "total": total, "has_more": hasMore})
 }
 
 // mediaStats GET /admin/media/stats
