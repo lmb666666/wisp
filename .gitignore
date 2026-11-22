@@ -25,4 +25,3 @@ web/dev-dist/
 .DS_Store
 .idea/
 .vscode/
-jar*.txt

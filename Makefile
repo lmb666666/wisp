@@ -1,5 +1,9 @@
 GO ?= go
 WEB ?= pnpm
+# 版本注入与 goreleaser/docker 链路对齐；源码构建默认取 git 描述
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+LDFLAGS := -s -w -X github.com/lmb666666/wisp/internal/version.Version=$(VERSION) -X github.com/lmb666666/wisp/internal/version.Commit=$(COMMIT)
 
 .PHONY: dev dev-api dev-web build build-web test test-go test-web test-e2e test-matrix load lint sqlc tidy release-snapshot clean
 
@@ -15,7 +19,7 @@ dev-web:
 
 ## 构建：先打包前端，再编译嵌入了 web/dist 的单二进制
 build: build-web
-	CGO_ENABLED=0 $(GO) build -trimpath -o wisp ./cmd/wisp
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o wisp ./cmd/wisp
 
 build-web:
 	cd web && $(WEB) build
@@ -42,6 +46,7 @@ release-snapshot: build-web
 
 lint:
 	$(GO) vet ./...
+	golangci-lint run ./...
 	cd web && $(WEB) lint
 
 sqlc:

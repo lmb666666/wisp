@@ -23,6 +23,12 @@ services:
       - ALL
     # 应用优雅退出上限 15s，再给 webhook/备份排空留余量。
     stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "/wisp-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     environment:
       - WISP_PUBLIC_URL=${WISP_PUBLIC_URL:-http://localhost:8080}
       - WISP_LOG_LEVEL=${WISP_LOG_LEVEL:-info}

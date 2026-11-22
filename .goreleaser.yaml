@@ -57,6 +57,7 @@ changelog:
   use: github
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+      # 前缀匹配：同时命中 docs: 与 docs(readme): 等 scoped 风格
+      - "^docs"
+      - "^test"
+      - "^chore"
