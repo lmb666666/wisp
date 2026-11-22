@@ -67,10 +67,13 @@ export default defineConfig({
         navigateFallbackDenylist: [
           /^\/api\//,
           /^\/media\//,
+          /^\/assets\//,
           /^\/feed\.xml$/,
           /^\/swagger(?:\/|$)/,
           /^\/healthz$/,
           /^\/readyz$/,
+          // 根级静态文件：地址栏直访不该被回退成 SPA
+          /^\/(?:og\.png|manifest\.webmanifest|favicon\.ico|favicon\.svg|apple-touch-icon\.png|icon(?:-192|-512|-maskable-512)?\.png|icon-maskable\.svg|icon\.svg)$/,
         ],
         runtimeCaching: [
           {
@@ -115,6 +118,8 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": "http://localhost:8080",
+      "/media": "http://localhost:8080",
+      "/feed.xml": "http://localhost:8080",
       "/healthz": "http://localhost:8080",
     },
   },
